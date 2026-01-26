@@ -903,11 +903,14 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
         </Card>
       )}
 
-      {/* Activity Detail View - Fullscreen with charts */}
-      {selectedActivity && (
+      {/* Activity Detail View - Fullscreen with charts - only when showActivityDetail is true */}
+      {showActivityDetail && selectedActivity && (
         <ActivityDetailView
           activity={selectedActivity}
-          onClose={() => setSelectedActivity(null)}
+          onClose={() => {
+            setShowActivityDetail(false)
+            setSelectedActivity(null)
+          }}
           athleteFTP={athleteData?.metabolic_profiles?.[0]?.ftp || 250}
         />
       )}

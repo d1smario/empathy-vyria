@@ -1144,12 +1144,14 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        {/* Rimuovo tab Settimana, VYRIA diventa: Zone, Palestra, Biblioteca, Piano Annuale, Impostazioni */}
-        {/* Cambio da 6 a 5 colonne e rimuovo TabsTrigger "weekly" */}
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="zones" className="flex items-center gap-1">
             <Heart className="h-4 w-4" />
             <span className="hidden sm:inline">Zone</span>
+          </TabsTrigger>
+          <TabsTrigger value="builder" className="flex items-center gap-1">
+            <Zap className="h-4 w-4" />
+            <span className="hidden sm:inline">Builder</span>
           </TabsTrigger>
           <TabsTrigger value="gym" className="flex items-center gap-1">
             <Dumbbell className="h-4 w-4" />
@@ -1286,6 +1288,128 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
             </div>
           </div>
         </TabsContent>
+        
+        {/* TAB: BUILDER - Crea allenamenti singoli */}
+        <TabsContent value="builder" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-fuchsia-500" />
+                Workout Builder
+              </CardTitle>
+              <CardDescription>
+                Crea allenamenti personalizzati multisport e salvali nel calendario
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Day Selector */}
+              <div className="mb-6">
+                <Label className="text-sm font-medium mb-2 block">Seleziona Giorno</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {DAY_NAMES.map((day, idx) => (
+                    <Button
+                      key={day}
+                      variant={selectedDay === idx ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedDay(idx)}
+                      className={selectedDay === idx ? "bg-fuchsia-600 hover:bg-fuchsia-700" : "bg-transparent"}
+                    >
+                      {day.slice(0, 3)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Show inline editor or button to create */}
+              {showInlineEditor ? (
+                renderInlineEditor()
+              ) : (
+                <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+                  <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Crea Nuovo Allenamento</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Seleziona il giorno e crea un allenamento personalizzato per {DAY_NAMES[selectedDay]}
+                  </p>
+                  <Button 
+                    onClick={() => setShowInlineEditor(true)}
+                    className="bg-fuchsia-600 hover:bg-fuchsia-700"
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Crea Allenamento
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Show created workouts for this week */}
+          {generatedPlan.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-fuchsia-500" />
+                  Allenamenti Creati ({generatedPlan.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {generatedPlan.map((session) => {
+                    const sportInfo = SPORTS.find(s => s.id === session.sport)
+                    const SportIcon = sportInfo?.icon || Activity
+                    return (
+                      <div key={session.sessionId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${ZONE_COLORS[session.targetZone] || 'bg-blue-500'}`}>
+                            <SportIcon className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{session.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {DAY_NAMES[session.dayIndex]} - {session.duration}min - {session.targetZone}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{session.tss || 0} TSS</Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSessionToDelete(session.sessionId)
+                              setDeleteDialogOpen(true)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                
+                {/* Save to Calendar button */}
+                <Button 
+                  className="w-full mt-4 bg-fuchsia-600 hover:bg-fuchsia-700"
+                  onClick={saveWeekToTraining}
+                  disabled={saving || generatedPlan.length === 0}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Salvataggio...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salva nel Calendario
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
         {/* TAB: PALESTRA */}
         <TabsContent value="gym" className="space-y-6 mt-6">
           <GymExerciseLibrary
