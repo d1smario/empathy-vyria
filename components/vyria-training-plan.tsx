@@ -599,19 +599,21 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
     setResetWeekDialogOpen(false)
   }
 
-  const saveWeekToTraining = async () => {
-    if (!athleteData?.id || generatedPlan.length === 0) return
-    setSaving(true)
-    try {
-      const { monday, sunday } = getWeekDateRange()
-      await supabase
-        .from("training_activities")
-        .delete()
-        .eq("athlete_id", athleteData.id)
-        .gte("activity_date", monday.toISOString().split("T")[0])
-        .lte("activity_date", sunday.toISOString().split("T")[0])
-
-      const workoutsToInsert = generatedPlan.map((session) => {
+const saveWeekToTraining = async () => {
+  if (!athleteData?.id || generatedPlan.length === 0) return
+  
+  // Get user_id from auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.id) {
+  alert("Errore: utente non autenticato")
+  return
+  }
+  
+  setSaving(true)
+  try {
+  const { monday } = getWeekDateRange()
+  
+  const workoutsToInsert = generatedPlan.map((session) => {
         // Use activityDate if available, otherwise calculate from dayIndex
         let activityDateStr: string
         if (session.activityDate) {
@@ -623,7 +625,7 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
         }
         
 return {
-  user_id: athleteData.user_id,
+  user_id: user.id,
   athlete_id: athleteData.id,
   activity_date: activityDateStr,
   activity_type: session.sport,
@@ -818,13 +820,20 @@ return {
 
 const saveEditorWorkout = async () => {
   if (editorBlocks.length === 0) {
-    alert("Aggiungi almeno un blocco")
-    return
+  alert("Aggiungi almeno un blocco")
+  return
   }
   
   if (!athleteData?.id) {
-    alert("Errore: dati atleta non disponibili")
-    return
+  alert("Errore: dati atleta non disponibili")
+  return
+  }
+  
+  // Get user_id from auth to ensure it matches activities-hub query
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.id) {
+  alert("Errore: utente non autenticato")
+  return
   }
   
   const totalDuration = getTotalDuration()
@@ -837,11 +846,11 @@ const saveEditorWorkout = async () => {
   
   const activityDateStr = selectedDate.toISOString().split('T')[0]
   
-// Save directly to database
+  // Save directly to database
   try {
   setSaving(true)
   const workoutData = {
-  user_id: athleteData.user_id, // Use user_id to match activities-hub query
+  user_id: user.id, // Use auth user_id to match activities-hub query
   athlete_id: athleteData.id,
   activity_date: activityDateStr,
   activity_type: editorSport,
