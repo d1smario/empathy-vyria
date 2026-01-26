@@ -32,7 +32,7 @@ import {
   ChevronLeft, ChevronRight, Calendar, CalendarDays, CalendarRange,
   Bike, Footprints, Dumbbell, Waves, Activity, Mountain,
   TrendingUp, Heart, Zap, Clock, Target, Plus, RefreshCw,
-  Trash2, Copy, MoveHorizontal, Edit, MoreVertical, X,
+  Trash2 as DeleteIcon, Copy, MoveHorizontal, Edit, MoreVertical, X,
   Sparkles, User, Library, GripVertical, Check, AlertTriangle,
   Moon, Sun, Thermometer, Wind, Brain, Upload, BarChart3, Link2
 } from "lucide-react"
@@ -208,92 +208,92 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
   }, [view, currentDate, selectedDate])
 
   // Fetch activities
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-        // Get athlete_id for the user
-        const { data: athleteRecord } = await supabase
-          .from('athletes')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-        
-        const athleteId = athleteRecord?.id
+      // Get athlete_id for the user
+      const { data: athleteRecord } = await supabase
+        .from('athletes')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      
+      const athleteId = athleteRecord?.id
 
-        // Fetch activities from training_activities using athlete_id
-        const { data: trainingData } = await supabase
-          .from('training_activities')
-          .select('*')
-          .eq('athlete_id', athleteId)
-          .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
-          .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
-          .order('activity_date', { ascending: true })
+      // Fetch activities from training_activities using athlete_id
+      const { data: trainingData } = await supabase
+        .from('training_activities')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
+        .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
+        .order('activity_date', { ascending: true })
 
-        // Fetch imported activities using user_id (imported_activities has user_id)
-        const { data: importedData } = await supabase
-          .from('imported_activities')
-          .select('*')
-          .eq('user_id', user.id)
-          .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
-          .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
+      // Fetch imported activities using user_id (imported_activities has user_id)
+      const { data: importedData } = await supabase
+        .from('imported_activities')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
+        .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
 
-        // Merge and transform
-        const merged: any[] = [
-          ...(trainingData || []).map(a => ({
-            ...a,
-            source: a.source || 'vyria' as const,
-          })),
-          ...(importedData || []).map(a => ({
-            id: a.id,
-            activity_date: a.activity_date,
-            activity_datetime: a.activity_datetime,
-            activity_type: a.activity_type || 'cycling',
-            title: a.title || a.file_name || 'Imported Activity',
-            duration_minutes: a.duration_seconds ? Math.round(a.duration_seconds / 60) : null,
-            duration_seconds: a.duration_seconds,
-            distance_km: a.distance_meters ? a.distance_meters / 1000 : null,
-            distance_meters: a.distance_meters,
-            tss: a.tss,
-            average_power: a.avg_power_watts,
-            normalized_power: a.normalized_power,
-            average_hr: a.avg_heart_rate,
-            max_hr: a.max_heart_rate,
-            elevation_gain: a.elevation_gain_meters,
-            elevation_gain_meters: a.elevation_gain_meters,
-            calories: a.calories,
-            completed: true,
-            source: 'imported' as const,
-            actual_duration_min: a.duration_seconds ? Math.round(a.duration_seconds / 60) : null,
-            actual_tss: a.tss,
-            actual_np: a.normalized_power,
-            raw_data: a.raw_data,
-          }))
-        ]
+      // Merge and transform
+      const merged: any[] = [
+        ...(trainingData || []).map(a => ({
+          ...a,
+          source: a.source || 'vyria' as const,
+        })),
+        ...(importedData || []).map(a => ({
+          id: a.id,
+          activity_date: a.activity_date,
+          activity_datetime: a.activity_datetime,
+          activity_type: a.activity_type || 'cycling',
+          title: a.title || a.file_name || 'Imported Activity',
+          duration_minutes: a.duration_seconds ? Math.round(a.duration_seconds / 60) : null,
+          duration_seconds: a.duration_seconds,
+          distance_km: a.distance_meters ? a.distance_meters / 1000 : null,
+          distance_meters: a.distance_meters,
+          tss: a.tss,
+          average_power: a.avg_power_watts,
+          normalized_power: a.normalized_power,
+          average_hr: a.avg_heart_rate,
+          max_hr: a.max_heart_rate,
+          elevation_gain: a.elevation_gain_meters,
+          elevation_gain_meters: a.elevation_gain_meters,
+          calories: a.calories,
+          completed: true,
+          source: 'imported' as const,
+          actual_duration_min: a.duration_seconds ? Math.round(a.duration_seconds / 60) : null,
+          actual_tss: a.tss,
+          actual_np: a.normalized_power,
+          raw_data: a.raw_data,
+        }))
+      ]
 
-        setActivities(merged)
+      setActivities(merged)
 
-        // TODO: Fetch biometrics when table exists
-        // const { data: bioData } = await supabase
-        //   .from('daily_biometrics')
-        //   .select('*')
-        //   .eq('user_id', user.id)
-        //   .gte('date', format(dateRange.start, 'yyyy-MM-dd'))
-        //   .lte('date', format(dateRange.end, 'yyyy-MM-dd'))
-        // setBiometrics(bioData || [])
+      // TODO: Fetch biometrics when table exists
+      // const { data: bioData } = await supabase
+      //   .from('daily_biometrics')
+      //   .select('*')
+      //   .eq('user_id', user.id)
+      //   .gte('date', format(dateRange.start, 'yyyy-MM-dd'))
+      //   .lte('date', format(dateRange.end, 'yyyy-MM-dd'))
+      // setBiometrics(bioData || [])
 
-      } catch (error) {
-        console.error('Error fetching activities:', error)
-      } finally {
-        setLoading(false)
-      }
+    } catch (error) {
+      console.error('Error fetching activities:', error)
+    } finally {
+      setLoading(false)
     }
-
-    fetchData()
   }, [dateRange, supabase])
+
+  useEffect(() => {
+    fetchData()
+  }, [dateRange, fetchData])
 
   // Build day data
   const daysData = useMemo(() => {
@@ -639,7 +639,7 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                             className="text-red-500"
                             onClick={() => handleDeleteActivity(activity)}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
+                            <DeleteIcon className="h-4 w-4 mr-2" />
                             Elimina
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -670,15 +670,15 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                       </div>
                       <div className="p-2 bg-background/50 rounded">
                         <div className="text-xs text-muted-foreground">TSS</div>
-                        <div className="font-bold text-amber-500">{activity.actual_tss || activity.tss || '--'}</div>
+                        <div className="font-bold text-lg text-amber-500">{activity.actual_tss || activity.tss || '--'}</div>
                       </div>
                       <div className="p-2 bg-background/50 rounded">
                         <div className="text-xs text-muted-foreground">NP</div>
-                        <div className="font-bold text-yellow-500">{activity.actual_np || activity.normalized_power || '--'}W</div>
+                        <div className="font-bold text-lg text-yellow-500">{activity.actual_np || activity.normalized_power || '--'}W</div>
                       </div>
                       <div className="p-2 bg-background/50 rounded">
                         <div className="text-xs text-muted-foreground">HR Avg</div>
-                        <div className="font-bold text-red-500">{activity.average_hr || '--'}bpm</div>
+                        <div className="font-bold text-lg text-red-500">{activity.average_hr || '--'}bpm</div>
                       </div>
                     </div>
 
@@ -970,7 +970,7 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
 
       {/* Day Detail Modal - Opens when clicking a day in month/week view */}
       <Dialog open={showDayDetail} onOpenChange={setShowDayDetail}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-700">
           {(() => {
             const day = daysData.find(d => selectedDate && isSameDay(d.date, selectedDate))
             if (!day) return null
@@ -1014,48 +1014,69 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                       const blocks = activity.intervals?.blocks || []
                       
                       return (
-                        <Card key={idx} className="border-l-4 border-l-fuchsia-500">
+                        <Card key={idx} className="border-l-4 border-l-fuchsia-500 bg-zinc-800 border-zinc-700">
                           <CardContent className="p-4 space-y-4">
                             {/* Header with sport icon and title */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className={cn("p-2 rounded-lg", 
-                                  activity.completed ? "bg-green-500/20" : "bg-muted"
+                                  activity.completed ? "bg-green-500/20" : "bg-zinc-800"
                                 )}>
                                   <SportIcon className={cn("h-6 w-6", getSportColor(activity.activity_type))} />
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold">{activity.title || "Allenamento"}</h3>
-                                  <p className="text-sm text-muted-foreground">{activity.workout_type || activity.activity_type}</p>
+                                  <h3 className="font-semibold text-white">{activity.title || "Allenamento"}</h3>
+                                  <p className="text-sm text-zinc-400">{activity.workout_type || activity.activity_type}</p>
                                 </div>
                               </div>
-                              <SourceBadge source={activity.source} />
+                              <div className="flex items-center gap-2">
+                                <SourceBadge source={activity.source} />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                                  onClick={async () => {
+                                    if (confirm("Vuoi eliminare questo allenamento?")) {
+                                      const { error } = await supabase
+                                        .from('training_activities')
+                                        .delete()
+                                        .eq('id', activity.id)
+                                      if (!error) {
+                                        fetchData()
+                                        setShowDayDetail(false)
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <DeleteIcon className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                             
                             {/* Stats Grid - TrainingPeaks style */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div className="bg-muted/30 rounded-lg p-3 text-center">
-                                <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-1">
+                              <div className="bg-zinc-700/50 rounded-lg p-3 text-center">
+                                <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
                                   <Clock className="h-3.5 w-3.5" />
                                   <span>Durata</span>
                                 </div>
-                                <span className="font-bold text-lg">{formatDuration(duration)}</span>
+                                <span className="font-bold text-lg text-white">{formatDuration(duration)}</span>
                               </div>
-                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                              <div className="bg-zinc-700/50 rounded-lg p-3 text-center">
                                 <div className="flex items-center justify-center gap-1 text-orange-500 text-xs mb-1">
                                   <Zap className="h-3.5 w-3.5" />
                                   <span>TSS</span>
                                 </div>
                                 <span className="font-bold text-lg text-orange-500">{tss}</span>
                               </div>
-                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                              <div className="bg-zinc-700/50 rounded-lg p-3 text-center">
                                 <div className="flex items-center justify-center gap-1 text-fuchsia-500 text-xs mb-1">
                                   <Activity className="h-3.5 w-3.5" />
                                   <span>Avg Power</span>
                                 </div>
                                 <span className="font-bold text-lg text-fuchsia-500">{avgPower}W</span>
                               </div>
-                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                              <div className="bg-zinc-700/50 rounded-lg p-3 text-center">
                                 <div className="flex items-center justify-center gap-1 text-red-500 text-xs mb-1">
                                   <Flame className="h-3.5 w-3.5" />
                                   <span>kcal</span>
