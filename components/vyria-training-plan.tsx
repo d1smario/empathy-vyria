@@ -622,24 +622,25 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
           activityDateStr = activityDate.toISOString().split("T")[0]
         }
         
-        return {
-          athlete_id: athleteData.id,
-          activity_date: activityDateStr,
-          activity_type: session.sport,
-          workout_type: session.workoutType,
-          title: session.title,
-          description: session.description,
-          duration_minutes: session.duration,
-          targetZone: session.targetZone,
-          tss: session.tss || Math.round(session.duration * 0.8),
-          average_power: session.avgPower,
-          calories: session.kcal,
-          intervals: { blocks: session.blocks },
-          gym_exercises: session.gymExercises,
-          planned: true,
-          completed: session.completed,
-          source: "vyria_generated",
-        }
+return {
+  user_id: athleteData.user_id,
+  athlete_id: athleteData.id,
+  activity_date: activityDateStr,
+  activity_type: session.sport,
+  workout_type: session.workoutType,
+  title: session.title,
+  description: session.description,
+  duration_minutes: session.duration,
+  targetZone: session.targetZone,
+  tss: session.tss || Math.round(session.duration * 0.8),
+  average_power: session.avgPower,
+  calories: session.kcal,
+  intervals: { blocks: session.blocks },
+  gym_exercises: session.gymExercises,
+  planned: true,
+  completed: session.completed,
+  source: "vyria_generated",
+  }
       })
       const { error } = await supabase.from("training_activities").insert(workoutsToInsert)
       if (error) throw error
@@ -836,13 +837,14 @@ const saveEditorWorkout = async () => {
   
   const activityDateStr = selectedDate.toISOString().split('T')[0]
   
-  // Save directly to database
+// Save directly to database
   try {
-    setSaving(true)
-    const workoutData = {
-      athlete_id: athleteData.id,
-      activity_date: activityDateStr,
-      activity_type: editorSport,
+  setSaving(true)
+  const workoutData = {
+  user_id: athleteData.user_id, // Use user_id to match activities-hub query
+  athlete_id: athleteData.id,
+  activity_date: activityDateStr,
+  activity_type: editorSport,
       workout_type: editorBlocks.some((b) => b.type === "intervals")
         ? "intervals"
         : editorBlocks[0]?.type || "endurance",
