@@ -185,12 +185,16 @@ const calculateTotalTSS = (blocks: any[], calculateBlockDurationFn: (b: any) => 
 }
 
 // Calculate kcal based on average power and duration
-// Formula: kcal = (avg_power_watts * duration_hours * 3.6) / efficiency
-// Assuming ~25% efficiency for cycling
+// Formula: Work (kJ) = Power (W) × Time (s) / 1000
+// Energy expenditure = Work / efficiency (25% for cycling)
+// kcal = kJ / 4.184
 const calculateKcal = (avgPowerWatts: number, durationMin: number): number => {
-  const durationHours = durationMin / 60
-  const efficiency = 0.25
-  return Math.round((avgPowerWatts * durationHours * 3.6) / efficiency)
+  const durationSeconds = durationMin * 60
+  const workKJ = (avgPowerWatts * durationSeconds) / 1000 // Work in kJ
+  const efficiency = 0.25 // 25% mechanical efficiency
+  const totalEnergyKJ = workKJ / efficiency
+  const kcal = totalEnergyKJ / 4.184 // Convert kJ to kcal
+  return Math.round(kcal)
 }
 
 // Estimate average power based on FTP and zones
