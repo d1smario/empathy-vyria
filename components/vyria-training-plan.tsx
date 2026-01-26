@@ -1572,14 +1572,17 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {SPORTS.map((sport) => (
-                      <SelectItem key={sport.id} value={sport.id}>
-                        <div className="flex items-center gap-2">
-                          <sport.icon className="h-4 w-4" />
-                          {sport.name}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {SPORTS.map((sport) => {
+                      const SportIcon = sport.icon
+                      return (
+                        <SelectItem key={sport.id} value={sport.id}>
+                          <div className="flex items-center gap-2">
+                            <SportIcon className="h-4 w-4" />
+                            {sport.name}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
