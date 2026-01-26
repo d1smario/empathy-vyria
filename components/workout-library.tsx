@@ -39,18 +39,25 @@ import { createClient } from "@/lib/supabase/client"
 // Types
 interface WorkoutTemplate {
   id: string
-  created_by: string
+  user_id?: string
+  created_by?: string
   is_public: boolean
+  is_template?: boolean
   name: string
   sport: string
   workout_type: string
   description: string
-  duration_minutes: number
-  tss_estimate: number
-  if_estimate: number
-  primary_zone: string
-  zone_distribution: Record<string, number>
-  intervals: WorkoutBlock[]
+  duration_minutes?: number
+  duration_min?: number
+  tss_estimate?: number
+  tss_target?: number
+  if_estimate?: number
+  intensity_factor?: number
+  primary_zone?: string
+  zone_distribution?: Record<string, number>
+  zones_distribution?: Record<string, number>
+  intervals?: WorkoutBlock[]
+  structure?: any
   tags: string[]
   created_at: string
 }
@@ -186,7 +193,29 @@ export function WorkoutLibrary({
         throw error
       }
       setTableExists(true)
-      setWorkouts(data || [])
+      
+      // Map database fields to component interface
+      const mappedWorkouts = (data || []).map((w: any) => ({
+        id: w.id,
+        user_id: w.user_id,
+        created_by: w.user_id,
+        is_public: w.is_public || false,
+        is_template: w.is_template || false,
+        name: w.name || 'Unnamed',
+        sport: w.sport || 'cycling',
+        workout_type: w.workout_type || 'endurance',
+        description: w.description || '',
+        duration_minutes: w.duration_min || w.duration_minutes || 60,
+        tss_estimate: w.tss_target || w.tss_estimate || 0,
+        if_estimate: w.intensity_factor || w.if_estimate || 0,
+        primary_zone: w.primary_zone || 'Z2',
+        zone_distribution: w.zones_distribution || w.zone_distribution || {},
+        intervals: w.structure?.blocks || w.intervals || [],
+        tags: w.tags || [],
+        created_at: w.created_at,
+      }))
+      
+      setWorkouts(mappedWorkouts)
     } catch (error) {
       console.error("Error loading workouts:", error)
     } finally {
@@ -225,8 +254,19 @@ export function WorkoutLibrary({
       const { data: userData } = await supabase.auth.getUser()
 
       const workoutData = {
-        ...formData,
-        created_by: userData.user?.id,
+        user_id: userData.user?.id,
+        name: formData.name,
+        sport: formData.sport,
+        workout_type: formData.workout_type,
+        description: formData.description,
+        duration_min: formData.duration_minutes,
+        tss_target: formData.tss_estimate,
+        intensity_factor: formData.if_estimate,
+        structure: formData.intervals ? { blocks: formData.intervals } : null,
+        zones_distribution: formData.zone_distribution,
+        tags: formData.tags,
+        is_public: formData.is_public || false,
+        is_template: true,
         updated_at: new Date().toISOString(),
       }
 
