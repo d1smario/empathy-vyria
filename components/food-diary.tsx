@@ -587,7 +587,7 @@ const entryData = {
       
       {/* Add Food Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-md bg-zinc-900 border-zinc-700">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-700">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-fuchsia-500" />
@@ -657,20 +657,39 @@ const entryData = {
                         
                         setUploadingImage(true)
                         try {
-                          const formData = new FormData()
-                          formData.append('file', file)
+                          // Upload to Supabase Storage
+                          const fileExt = file.name.split('.').pop()
+                          const fileName = `${athleteData?.id || 'unknown'}_${Date.now()}.${fileExt}`
+                          const filePath = `food-images/${fileName}`
                           
-                          const res = await fetch('/api/upload-food-image', {
-                            method: 'POST',
-                            body: formData
-                          })
+                          const { error: uploadError } = await supabase.storage
+                            .from('food-diary')
+                            .upload(filePath, file, { upsert: true })
                           
-                          if (res.ok) {
-                            const { url } = await res.json()
-                            setNewEntry({ ...newEntry, image_url: url })
+                          if (uploadError) {
+                            // If bucket doesn't exist, try creating it or use public URL
+                            console.error('Upload error:', uploadError)
+                            // Fallback: convert to base64 data URL for now
+                            const reader = new FileReader()
+                            reader.onload = (ev) => {
+                              setNewEntry({ ...newEntry, image_url: ev.target?.result as string })
+                            }
+                            reader.readAsDataURL(file)
+                          } else {
+                            // Get public URL
+                            const { data: urlData } = supabase.storage
+                              .from('food-diary')
+                              .getPublicUrl(filePath)
+                            setNewEntry({ ...newEntry, image_url: urlData.publicUrl })
                           }
                         } catch (err) {
                           console.error('Upload error:', err)
+                          // Fallback to base64
+                          const reader = new FileReader()
+                          reader.onload = (ev) => {
+                            setNewEntry({ ...newEntry, image_url: ev.target?.result as string })
+                          }
+                          reader.readAsDataURL(file)
                         } finally {
                           setUploadingImage(false)
                         }
