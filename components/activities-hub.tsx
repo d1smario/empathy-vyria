@@ -239,21 +239,27 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
           ...(importedData || []).map(a => ({
             id: a.id,
             activity_date: a.activity_date,
+            activity_datetime: a.activity_datetime,
             activity_type: a.activity_type || 'cycling',
             title: a.title || a.file_name || 'Imported Activity',
             duration_minutes: a.duration_seconds ? Math.round(a.duration_seconds / 60) : null,
+            duration_seconds: a.duration_seconds,
             distance_km: a.distance_meters ? a.distance_meters / 1000 : null,
+            distance_meters: a.distance_meters,
             tss: a.tss,
             average_power: a.avg_power_watts,
             normalized_power: a.normalized_power,
             average_hr: a.avg_heart_rate,
             max_hr: a.max_heart_rate,
             elevation_gain: a.elevation_gain_meters,
+            elevation_gain_meters: a.elevation_gain_meters,
+            calories: a.calories,
             completed: true,
             source: 'imported' as const,
             actual_duration_min: a.duration_seconds ? Math.round(a.duration_seconds / 60) : null,
             actual_tss: a.tss,
             actual_np: a.normalized_power,
+            raw_data: a.raw_data,
           }))
         ]
 
@@ -975,20 +981,17 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Activity Detail View Modal */}
-      <Dialog open={showActivityDetail} onOpenChange={setShowActivityDetail}>
-        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
-          {selectedActivity && (
-            <ActivityDetailView
-              activity={selectedActivity}
-              onClose={() => {
-                setShowActivityDetail(false)
-                setSelectedActivity(null)
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Activity Detail View - Fullscreen Modal */}
+      {showActivityDetail && selectedActivity && (
+        <ActivityDetailView
+          activity={selectedActivity}
+          onClose={() => {
+            setShowActivityDetail(false)
+            setSelectedActivity(null)
+          }}
+          athleteFTP={athleteData?.metabolic_profiles?.[0]?.ftp || 250}
+        />
+      )}
     </div>
   )
 }
