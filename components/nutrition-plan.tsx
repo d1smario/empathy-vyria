@@ -1650,6 +1650,7 @@ function NutritionPlan({ athleteData, userName }: NutritionPlanProps) {
   const [trainingPreferences, setTrainingPreferences] = useState<TrainingPreferences | null>(null)
   const [aiSubstitutions, setAiSubstitutions] = useState<AISubstitution[]>([])
   const [aiAdaptiveEnabled, setAiAdaptiveEnabled] = useState(false)
+  const [metabolicPhase, setMetabolicPhase] = useState<'maintenance' | 'anabolic' | 'catabolic'>('maintenance')
   const [refreshTrigger, setRefreshTrigger] = useState(0) // Used to trigger data reload after AI changes
   const [aiAdaptations, setAiAdaptations] = useState<{
     nutrition?: {
@@ -2081,7 +2082,7 @@ if (annualPlan?.config_json?.training_preferences) {
     return Math.round(370 + 21.6 * lbm)
   }, [weight])
 
-  // Calculate daily calories - apply AI adaptations if available
+  // Calculate daily calories - apply AI adaptations and metabolic phase
   const dailyKcal = useMemo(() => {
     // Base: BMR + 15% TEF (this is for REST days - no workout)
     const restDayKcal = Math.round(bmr * 1.15)
@@ -2089,14 +2090,33 @@ if (annualPlan?.config_json?.training_preferences) {
     // For workout days: BMR + TEF + 40% workout kcal (60% comes from fueling)
     const workoutDayKcal = Math.round(bmr * 1.15 + workoutMetrics.kcal * 0.4)
     
-    // If AI adaptive is enabled, use AI's calculated daily_kcal (already includes adjustments)
-    if (aiAdaptiveEnabled && aiAdaptations?.nutrition?.daily_kcal) {
-      return aiAdaptations.nutrition.daily_kcal
+    // Base calculation
+    let baseKcal = selectedActivity ? workoutDayKcal : restDayKcal
+    
+    // Apply metabolic phase adjustment
+    // Anabolic: +10-15% surplus for muscle building
+    // Catabolic: -15-20% deficit for fat loss
+    // Maintenance: no change
+    if (metabolicPhase === 'anabolic') {
+      baseKcal = Math.round(baseKcal * 1.12) // +12% surplus
+    } else if (metabolicPhase === 'catabolic') {
+      baseKcal = Math.round(baseKcal * 0.85) // -15% deficit
     }
     
-    // Otherwise use local calculation based on whether there's a workout
-    return selectedActivity ? workoutDayKcal : restDayKcal
-  }, [bmr, workoutMetrics.kcal, aiAdaptations, aiAdaptiveEnabled, selectedActivity])
+    // If AI adaptive is enabled, use AI's calculated daily_kcal (already includes adjustments)
+    if (aiAdaptiveEnabled && aiAdaptations?.nutrition?.daily_kcal) {
+      // Apply phase adjustment to AI calculation too
+      let aiKcal = aiAdaptations.nutrition.daily_kcal
+      if (metabolicPhase === 'anabolic') {
+        aiKcal = Math.round(aiKcal * 1.12)
+      } else if (metabolicPhase === 'catabolic') {
+        aiKcal = Math.round(aiKcal * 0.85)
+      }
+      return aiKcal
+    }
+    
+    return baseKcal
+  }, [bmr, workoutMetrics.kcal, aiAdaptations, aiAdaptiveEnabled, selectedActivity, metabolicPhase])
 
   // Calculate intra-workout CHO - EMPATHY LOGIC based on zone and duration
   const intraWorkCho = useMemo(() => {
@@ -2468,9 +2488,65 @@ if (annualPlan?.config_json?.training_preferences) {
     const weekPlan: Record<number, typeof mealPlan> = {}
     const usedFoods: WeeklyFoodUsage = {}
 
-  // APPROCCIO CLASSICO: Nessun filtro sui pasti
-  // Le intolleranze vengono segnalate come avviso nel report
-  const filterMeals = (meals: typeof MEAL_DATABASE.colazione) => meals
+  // FILTRO ATTIVO: Filtra pasti in base a intolleranze e allergie
+  const filterMeals = (meals: typeof MEAL_DATABASE.colazione) => {
+    if (!athleteConstraints) return meals
+    
+    const intolerances = (athleteConstraints.intolerances || []).map(i => i.toLowerCase())
+    const allergies = (athleteConstraints.allergies || []).map(a => a.toLowerCase())
+    const foodsToAvoid = (athleteConstraints.foods_to_avoid || []).map(f => f.toLowerCase())
+    
+    return meals.filter(meal => {
+      const ingredients = (meal.ingredients || []).map(i => i.toLowerCase())
+      const tags = (meal.tags || []).map(t => t.toLowerCase())
+      
+      // Check for lactose intolerance
+      if (intolerances.some(i => i.includes('lattosio') || i.includes('latticini'))) {
+        if (ingredients.some(ing => 
+          ing.includes('latte') || ing.includes('yogurt') || ing.includes('formaggio') || 
+          ing.includes('ricotta') || ing.includes('mozzarella') || ing.includes('parmigiano') ||
+          ing.includes('burro') || ing.includes('panna')
+        )) return false
+      }
+      
+      // Check for gluten intolerance/celiac
+      if (intolerances.some(i => i.includes('glutine')) || allergies.some(a => a.includes('glutine') || a.includes('celiac'))) {
+        if (ingredients.some(ing => 
+          ing.includes('pane') || ing.includes('pasta') || ing.includes('farina') || 
+          ing.includes('avena') || ing.includes('orzo') || ing.includes('farro') ||
+          ing.includes('seitan') || ing.includes('crackers')
+        ) && !tags.includes('gluten-free')) return false
+      }
+      
+      // Check for egg allergy
+      if (allergies.some(a => a.includes('uova') || a.includes('uovo'))) {
+        if (ingredients.some(ing => ing.includes('uova') || ing.includes('uovo'))) return false
+      }
+      
+      // Check for nut allergy
+      if (allergies.some(a => a.includes('frutta secca') || a.includes('noci') || a.includes('arachidi'))) {
+        if (ingredients.some(ing => 
+          ing.includes('noci') || ing.includes('mandorle') || ing.includes('nocciole') || 
+          ing.includes('arachidi') || ing.includes('pistacchi') || ing.includes('anacardi')
+        )) return false
+      }
+      
+      // Check for nickel allergy
+      if (allergies.some(a => a.includes('nichel'))) {
+        if (ingredients.some(ing => 
+          ing.includes('pomodoro') || ing.includes('spinaci') || ing.includes('cacao') || 
+          ing.includes('cioccolato') || ing.includes('lenticchie') || ing.includes('fagioli')
+        )) return false
+      }
+      
+      // Check AI-specified foods to avoid
+      if (foodsToAvoid.length > 0) {
+        if (ingredients.some(ing => foodsToAvoid.some(avoid => ing.includes(avoid)))) return false
+      }
+      
+      return true
+    })
+  }
 
   // EMPATHY meal selection: rotazione + adattamento al tipo di giornata
   const selectMealWithRotation = (meals: typeof MEAL_DATABASE.colazione, mealType: string, targetKcal: number, dayIndex: number, workoutType: string) => {
@@ -3048,6 +3124,36 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
         <Activity className="h-4 w-4 mr-1" />
         {aiAdaptiveEnabled ? "AI Attivo" : "AI Adattivo"}
       </Button>
+      {/* Metabolic Phase Selector */}
+      <div className="flex items-center gap-1 border rounded-md p-0.5">
+        <Button
+          variant={metabolicPhase === 'catabolic' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setMetabolicPhase('catabolic')}
+          className={`px-2 h-7 text-xs ${metabolicPhase === 'catabolic' ? 'bg-red-600 hover:bg-red-700' : 'text-red-400 hover:text-red-300'}`}
+          title="Fase catabolica: -15% kcal per perdita grasso"
+        >
+          Deficit
+        </Button>
+        <Button
+          variant={metabolicPhase === 'maintenance' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setMetabolicPhase('maintenance')}
+          className={`px-2 h-7 text-xs ${metabolicPhase === 'maintenance' ? 'bg-gray-600 hover:bg-gray-700' : 'text-gray-400 hover:text-gray-300'}`}
+          title="Mantenimento: calorie bilanciate"
+        >
+          Mantieni
+        </Button>
+        <Button
+          variant={metabolicPhase === 'anabolic' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setMetabolicPhase('anabolic')}
+          className={`px-2 h-7 text-xs ${metabolicPhase === 'anabolic' ? 'bg-green-600 hover:bg-green-700' : 'text-green-400 hover:text-green-300'}`}
+          title="Fase anabolica: +12% kcal per costruzione muscolare"
+        >
+          Surplus
+        </Button>
+      </div>
   <AIAnalysisButton
   athleteId={athleteData.id}
   endpoint="nutrition"
@@ -3253,11 +3359,11 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
           </div>
         </div>
         <div className="text-center p-2 bg-background/50 rounded">
-          <div className="text-xs text-muted-foreground">Kcal Totali</div>
+          <div className="text-xs text-muted-foreground">Kcal Totali Giorno</div>
           <div className="text-lg font-bold text-cyan-400">
-            {dailyKcal + workoutMetrics.kcal}
-            <span className="text-xs ml-1 text-green-400">
-              (+{workoutMetrics.kcal})
+            {dailyKcal}
+            <span className="text-xs ml-1 text-muted-foreground">
+              (BMR + TEF + 40% workout)
             </span>
           </div>
         </div>
