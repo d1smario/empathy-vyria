@@ -83,6 +83,7 @@ export function FoodDiary({ athleteData }: FoodDiaryProps) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedMealType, setSelectedMealType] = useState<string>("colazione")
   const [saving, setSaving] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false) // Declare uploadingImage variable
   
   // New entry form state
   const [newEntry, setNewEntry] = useState({
@@ -618,6 +619,71 @@ const entryData = {
                     </Button>
                   )
                 })}
+              </div>
+            </div>
+            
+            {/* Photo Upload */}
+            <div className="space-y-2">
+              <Label>Foto Alimento</Label>
+              <div className="flex gap-3">
+                {newEntry.image_url ? (
+                  <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-zinc-700">
+                    <img 
+                      src={newEntry.image_url || "/placeholder.svg"} 
+                      alt="Food preview" 
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-1 right-1 h-6 w-6 bg-black/50 hover:bg-black/70"
+                      onClick={() => setNewEntry({ ...newEntry, image_url: "" })}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-fuchsia-500 hover:bg-zinc-800/50 transition-colors">
+                    <Camera className="h-6 w-6 text-zinc-500 mb-1" />
+                    <span className="text-[10px] text-zinc-500">Carica foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        
+                        setUploadingImage(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          
+                          const res = await fetch('/api/upload-food-image', {
+                            method: 'POST',
+                            body: formData
+                          })
+                          
+                          if (res.ok) {
+                            const { url } = await res.json()
+                            setNewEntry({ ...newEntry, image_url: url })
+                          }
+                        } catch (err) {
+                          console.error('Upload error:', err)
+                        } finally {
+                          setUploadingImage(false)
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+                {uploadingImage && (
+                  <div className="flex items-center gap-2 text-zinc-400 text-sm">
+                    <div className="animate-spin h-4 w-4 border-2 border-fuchsia-500 border-t-transparent rounded-full" />
+                    Caricamento...
+                  </div>
+                )}
               </div>
             </div>
             
