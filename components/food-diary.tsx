@@ -651,48 +651,21 @@ const entryData = {
                       accept="image/*"
                       capture="environment"
                       className="hidden"
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
                         
                         setUploadingImage(true)
-                        try {
-                          // Upload to Supabase Storage
-                          const fileExt = file.name.split('.').pop()
-                          const fileName = `${athleteData?.id || 'unknown'}_${Date.now()}.${fileExt}`
-                          const filePath = `food-images/${fileName}`
-                          
-                          const { error: uploadError } = await supabase.storage
-                            .from('food-diary')
-                            .upload(filePath, file, { upsert: true })
-                          
-                          if (uploadError) {
-                            // If bucket doesn't exist, try creating it or use public URL
-                            console.error('Upload error:', uploadError)
-                            // Fallback: convert to base64 data URL for now
-                            const reader = new FileReader()
-                            reader.onload = (ev) => {
-                              setNewEntry({ ...newEntry, image_url: ev.target?.result as string })
-                            }
-                            reader.readAsDataURL(file)
-                          } else {
-                            // Get public URL
-                            const { data: urlData } = supabase.storage
-                              .from('food-diary')
-                              .getPublicUrl(filePath)
-                            setNewEntry({ ...newEntry, image_url: urlData.publicUrl })
-                          }
-                        } catch (err) {
-                          console.error('Upload error:', err)
-                          // Fallback to base64
-                          const reader = new FileReader()
-                          reader.onload = (ev) => {
-                            setNewEntry({ ...newEntry, image_url: ev.target?.result as string })
-                          }
-                          reader.readAsDataURL(file)
-                        } finally {
+                        // Convert to base64 - works without storage configuration
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          setNewEntry({ ...newEntry, image_url: ev.target?.result as string })
                           setUploadingImage(false)
                         }
+                        reader.onerror = () => {
+                          setUploadingImage(false)
+                        }
+                        reader.readAsDataURL(file)
                       }}
                     />
                   </label>
