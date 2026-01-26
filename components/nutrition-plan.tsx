@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pill, Activity, Flame, Clock, Package, Sparkles, ShoppingCart, Download, FileText } from "lucide-react"
+import { Pill, Activity, Flame, Clock, Package, Sparkles, ShoppingCart, Download, FileText, AlertTriangle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { AIAnalysisButton } from "@/components/ai-analysis-button"
 import { SUPPLEMENTS_DATABASE, getProductsByBrand, getCompatibleProducts, type SupplementProduct } from "@/lib/data/supplements-database"
@@ -2606,7 +2606,9 @@ if (annualPlan?.config_json?.training_preferences) {
         dayWorkoutKcal = Math.round(consumption.kcalH * durationHours)
       }
 
-      const dayDailyKcal = Math.round(bmr + bmr * 0.15 + dayWorkoutKcal * 0.4)
+      // Apply metabolic phase multiplier to daily kcal
+      const phaseMultiplier = metabolicPhase === 'anabolic' ? 1.12 : metabolicPhase === 'catabolic' ? 0.85 : 1.0
+      const dayDailyKcal = Math.round((bmr + bmr * 0.15 + dayWorkoutKcal * 0.4) * phaseMultiplier)
 
       const mealTimes: Record<string, string> = {}
       const mealLabels: Record<string, string> = {}
@@ -2665,7 +2667,7 @@ if (annualPlan?.config_json?.training_preferences) {
     setWeeklyFoodUsage(usedFoods)
 
     return weekPlan
-  }, [bmr, weeklyActivities, athleteConstraints, metabolicProfile, dailyKcal, calculateMealTiming, trainingPreferences])
+  }, [bmr, weeklyActivities, athleteConstraints, metabolicProfile, dailyKcal, calculateMealTiming, trainingPreferences, metabolicPhase])
 
   // Get meal plan for selected day - AI substitutions are applied inline to ingredients during rendering
   const mealPlan = useMemo(() => {
@@ -3538,36 +3540,90 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
       </ul>
     </div>
     
-    {/* AI Alternatives Column - only show if there are alternatives */}
-    {meal.ingredients.some((ing: any) => 
-      aiSubstitutions.some(s => ing.name.toLowerCase().includes(s.original.toLowerCase()))
-    ) && (
-      <div className="border-l border-cyan-500/30 pl-4">
-        <div className="flex items-center gap-1 mb-1">
-          <Sparkles className="h-3 w-3 text-cyan-400" />
-          <strong className="text-cyan-400">Alternative AI:</strong>
+    {/* Alternatives Column - for allergies/intolerances and AI suggestions */}
+    {(() => {
+      // Build automatic substitutions based on athlete constraints
+      const autoSubstitutions: Record<string, { sub: string; reason: string }> = {
+        // Lactose
+        'latte': { sub: 'Latte senza lattosio / Latte di mandorla', reason: 'Intolleranza lattosio' },
+        'yogurt': { sub: 'Yogurt senza lattosio / Yogurt di soia', reason: 'Intolleranza lattosio' },
+        'formaggio': { sub: 'Formaggio stagionato (meno lattosio) / Tofu', reason: 'Intolleranza lattosio' },
+        'ricotta': { sub: 'Ricotta senza lattosio / Hummus', reason: 'Intolleranza lattosio' },
+        'mozzarella': { sub: 'Mozzarella senza lattosio', reason: 'Intolleranza lattosio' },
+        'burro': { sub: 'Olio EVO / Margarina vegetale', reason: 'Intolleranza lattosio' },
+        'panna': { sub: 'Panna vegetale / Latte di cocco', reason: 'Intolleranza lattosio' },
+        // Gluten
+        'pane': { sub: 'Pane senza glutine / Gallette di riso', reason: 'Celiachia/Glutine' },
+        'pasta': { sub: 'Pasta di riso / Pasta di legumi', reason: 'Celiachia/Glutine' },
+        'farina': { sub: 'Farina di riso / Farina di mandorle', reason: 'Celiachia/Glutine' },
+        'avena': { sub: 'Avena certificata GF / Quinoa', reason: 'Celiachia/Glutine' },
+        'crackers': { sub: 'Crackers senza glutine / Gallette', reason: 'Celiachia/Glutine' },
+        // Eggs
+        'uova': { sub: 'Tofu strapazzato / Semi di lino + acqua', reason: 'Allergia uova' },
+        'uovo': { sub: 'Tofu strapazzato / Semi di chia', reason: 'Allergia uova' },
+        // Nuts
+        'noci': { sub: 'Semi di zucca / Semi di girasole', reason: 'Allergia frutta secca' },
+        'mandorle': { sub: 'Semi di zucca / Cocco', reason: 'Allergia frutta secca' },
+        'nocciole': { sub: 'Semi di girasole', reason: 'Allergia frutta secca' },
+        'arachidi': { sub: 'Semi di zucca / Ceci tostati', reason: 'Allergia arachidi' },
+        // Nickel
+        'pomodoro': { sub: 'Peperoni rossi / Zucchine', reason: 'Allergia nichel' },
+        'spinaci': { sub: 'Lattuga / Rucola', reason: 'Allergia nichel' },
+        'cioccolato': { sub: 'Carruba', reason: 'Allergia nichel' },
+        'cacao': { sub: 'Carruba in polvere', reason: 'Allergia nichel' },
+      }
+      
+      const intolerances = (athleteConstraints?.intolerances || []).map((i: string) => i.toLowerCase())
+      const allergies = (athleteConstraints?.allergies || []).map((a: string) => a.toLowerCase())
+      const hasLactose = intolerances.some(i => i.includes('lattosio') || i.includes('latticini'))
+      const hasGluten = intolerances.some(i => i.includes('glutine')) || allergies.some(a => a.includes('glutine') || a.includes('celiac'))
+      const hasEggs = allergies.some(a => a.includes('uova') || a.includes('uovo'))
+      const hasNuts = allergies.some(a => a.includes('frutta secca') || a.includes('noci') || a.includes('arachidi'))
+      const hasNickel = allergies.some(a => a.includes('nichel'))
+      
+      const relevantSubs = meal.ingredients.map((ing: any) => {
+        const ingLower = ing.name.toLowerCase()
+        
+        // Check AI substitutions first
+        const aiSub = aiSubstitutions.find(s => ingLower.includes(s.original.toLowerCase()))
+        if (aiSub) return { ing, sub: aiSub.substitute, reason: aiSub.reason, type: 'ai' }
+        
+        // Then check automatic substitutions based on constraints
+        for (const [key, value] of Object.entries(autoSubstitutions)) {
+          if (ingLower.includes(key)) {
+            // Only suggest if relevant intolerance/allergy exists
+            if (value.reason.includes('lattosio') && hasLactose) return { ing, ...value, type: 'auto' }
+            if (value.reason.includes('Glutine') && hasGluten) return { ing, ...value, type: 'auto' }
+            if (value.reason.includes('uova') && hasEggs) return { ing, ...value, type: 'auto' }
+            if (value.reason.includes('frutta secca') && hasNuts) return { ing, ...value, type: 'auto' }
+            if (value.reason.includes('arachidi') && hasNuts) return { ing, ...value, type: 'auto' }
+            if (value.reason.includes('nichel') && hasNickel) return { ing, ...value, type: 'auto' }
+          }
+        }
+        return null
+      }).filter(Boolean)
+      
+      if (relevantSubs.length === 0) return null
+      
+      return (
+        <div className="border-l border-amber-500/30 pl-4">
+          <div className="flex items-center gap-1 mb-1">
+            <AlertTriangle className="h-3 w-3 text-amber-400" />
+            <strong className="text-amber-400">Alternative per allergie:</strong>
+          </div>
+          <ul className="list-disc list-inside mt-1 space-y-0.5">
+            {relevantSubs.map((item: any, idx: number) => (
+              <li key={idx} className={item.type === 'ai' ? 'text-cyan-400' : 'text-amber-300'}>
+                <span className="text-muted-foreground">{item.ing.name}</span>
+                <span className="mx-1">→</span>
+                <span>{item.sub}: {item.ing.grams}g</span>
+                <span className="text-xs text-muted-foreground ml-1">({item.reason})</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="list-disc list-inside mt-1">
-          {meal.ingredients.map((ing: any, ingIndex: number) => {
-            const substitution = aiSubstitutions.find(s => 
-              ing.name.toLowerCase().includes(s.original.toLowerCase())
-            )
-            
-            if (substitution) {
-              return (
-                <li key={ingIndex} className="text-cyan-400">
-                  {substitution.substitute === "evitare" 
-                    ? <span className="text-red-400">Evitare {ing.name}</span>
-                    : `${substitution.substitute}: ${ing.grams}g`}
-                  <span className="text-xs text-muted-foreground ml-1">({substitution.reason})</span>
-                </li>
-              )
-            }
-            return null
-          }).filter(Boolean)}
-        </ul>
-      </div>
-    )}
+      )
+    })()}
   </div>
   </div>
                         </CardContent>
