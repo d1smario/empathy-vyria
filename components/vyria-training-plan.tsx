@@ -1,5 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -39,6 +41,7 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  Clock,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { AnnualPlanGenerator } from "./annual-plan-generator"
@@ -892,39 +895,63 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
             </Button>
           </div>
         </CardHeader>
-        <div className="max-h-[400px] overflow-y-auto px-6">
+        <div className="max-h-[500px] overflow-y-auto px-6">
           <div className="space-y-4 pb-4">
-            {/* Config Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-xs">Sport</Label>
-                <Select value={editorSport} onValueChange={setEditorSport}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SPORTS.filter((s) => s.id !== "gym").map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        <div className="flex items-center gap-2">
-                          <s.icon className="h-4 w-4" />
-                          {s.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Sport Selection Grid - VYRIA Style */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Sport Principale</Label>
+              <div className="grid grid-cols-5 md:grid-cols-10 gap-2">
+                {SPORTS.filter((s) => s.id !== "gym").map((sport) => {
+                  const Icon = sport.icon
+                  return (
+                    <button
+                      key={sport.id}
+                      type="button"
+                      onClick={() => setEditorSport(sport.id)}
+                      className={cn(
+                        "p-2 rounded-lg border-2 transition flex flex-col items-center gap-1",
+                        editorSport === sport.id
+                          ? "border-fuchsia-500 bg-fuchsia-500/20"
+                          : "border-border bg-background hover:border-muted-foreground"
+                      )}
+                    >
+                      <Icon className={cn("h-5 w-5", sport.color)} />
+                      <span className="text-[10px]">{sport.name}</span>
+                      {sport.supportsPower && (
+                        <span className="text-[8px] text-fuchsia-400 font-bold">PWR</span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
+            </div>
+
+            {/* Config Row */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div>
-                <Label className="text-xs">Zones Type</Label>
-                <Select value={editorZoneType} onValueChange={(v) => setEditorZoneType(v as "hr" | "power")}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="power">Potenza (W)</SelectItem>
-                    <SelectItem value="hr">Frequenza (bpm)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Parametro Zone</Label>
+                <div className="flex gap-2 mt-1">
+                  <Button
+                    type="button"
+                    variant={editorZoneType === "power" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setEditorZoneType("power")}
+                    className={cn("flex-1 h-9", editorZoneType === "power" ? "bg-fuchsia-600" : "bg-transparent")}
+                  >
+                    <Zap className="h-4 w-4 mr-1" />
+                    Potenza
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={editorZoneType === "hr" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setEditorZoneType("hr")}
+                    className={cn("flex-1 h-9", editorZoneType === "hr" ? "bg-red-600" : "bg-transparent")}
+                  >
+                    <Heart className="h-4 w-4 mr-1" />
+                    HR
+                  </Button>
+                </div>
               </div>
               <div className="col-span-2">
                 <Label className="text-xs">Nome Allenamento</Label>
@@ -932,9 +959,83 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
                   value={editorTitle}
                   onChange={(e) => setEditorTitle(e.target.value)}
                   placeholder="es. Soglia 2x20"
-                  className="h-9"
+                  className="h-9 bg-background"
                 />
               </div>
+            </div>
+
+            {/* Live Visual Block Chart Preview */}
+            <div className="space-y-2 p-3 bg-background rounded-lg border border-border">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Anteprima Struttura</Label>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-bold">{getTotalDuration()} min</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Zap className="h-3 w-3 text-orange-500" />
+                    <span className="font-bold text-orange-500">
+                      {Math.round(editorBlocks.reduce((sum, b) => {
+                        const dur = calculateBlockDuration(b)
+                        const zoneIF: Record<string, number> = { Z1: 0.5, Z2: 0.65, Z3: 0.8, Z4: 0.95, Z5: 1.05, Z6: 1.15, Z7: 1.25 }
+                        return sum + (dur * (zoneIF[b.zone] || 0.7) ** 2)
+                      }, 0))} TSS
+                    </span>
+                  </span>
+                </div>
+              </div>
+              
+              {/* Visual Block Chart */}
+              <div className="h-16 flex gap-0.5 rounded overflow-hidden bg-muted/30">
+                {editorBlocks.length > 0 ? (
+                  editorBlocks.map((block, idx) => {
+                    const bt = BLOCK_TYPES.find(b => b.id === block.type)
+                    const duration = calculateBlockDuration(block)
+                    const totalDur = getTotalDuration() || 1
+                    const widthPercent = (duration / totalDur) * 100
+                    const zoneHeights: Record<string, string> = {
+                      Z1: "h-4", Z2: "h-6", Z3: "h-8", Z4: "h-10", Z5: "h-12", Z6: "h-14", Z7: "h-16"
+                    }
+                    
+                    return (
+                      <div
+                        key={block.id}
+                        className="flex items-end justify-center group relative cursor-pointer"
+                        style={{ width: `${Math.max(widthPercent, 3)}%`, minWidth: '12px' }}
+                        onClick={() => {
+                          // Could open edit for this block
+                        }}
+                      >
+                        <div 
+                          className={cn(
+                            "w-full rounded-t transition-all flex items-center justify-center",
+                            zoneHeights[block.zone] || "h-6",
+                            bt?.color || ZONE_COLORS[block.zone] || "bg-green-500"
+                          )}
+                        >
+                          <span className="text-[9px] text-white font-bold drop-shadow">{block.zone}</span>
+                        </div>
+                        {/* Tooltip on hover */}
+                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-popover text-popover-foreground text-[10px] p-1.5 rounded shadow-lg whitespace-nowrap z-20 border">
+                          <p className="font-medium">{bt?.name || block.type}</p>
+                          <p>{duration} min @ {block.zone}</p>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                    Aggiungi blocchi per vedere l'anteprima
+                  </div>
+                )}
+              </div>
+              {editorBlocks.length > 0 && (
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>0 min</span>
+                  <span>{getTotalDuration()} min</span>
+                </div>
+              )}
             </div>
 
             {/* Block Type Buttons */}
@@ -942,7 +1043,7 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
               <Label className="text-xs mb-2 block">Aggiungi Blocco</Label>
               <div className="flex flex-wrap gap-2">
                 {BLOCK_TYPES.map((bt) => (
-                  <Button key={bt.id} variant="outline" size="sm" onClick={() => addBlock(bt)} className="h-8">
+                  <Button key={bt.id} variant="outline" size="sm" onClick={() => addBlock(bt)} className="h-8 bg-transparent">
                     <div className={`w-3 h-3 rounded-full ${bt.color} mr-2`} />
                     {bt.name}
                   </Button>
