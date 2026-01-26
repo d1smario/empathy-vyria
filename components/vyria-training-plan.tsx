@@ -602,13 +602,6 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
 const saveWeekToTraining = async () => {
   if (!athleteData?.id || generatedPlan.length === 0) return
   
-  // Get user_id from auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.id) {
-  alert("Errore: utente non autenticato")
-  return
-  }
-  
   setSaving(true)
   try {
   const { monday } = getWeekDateRange()
@@ -625,7 +618,6 @@ const saveWeekToTraining = async () => {
         }
         
 return {
-  user_id: user.id,
   athlete_id: athleteData.id,
   activity_date: activityDateStr,
   activity_type: session.sport,
@@ -850,7 +842,6 @@ const saveEditorWorkout = async () => {
   try {
   setSaving(true)
   const workoutData = {
-  user_id: user.id, // Use auth user_id to match activities-hub query
   athlete_id: athleteData.id,
   activity_date: activityDateStr,
   activity_type: editorSport,
