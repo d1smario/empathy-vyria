@@ -11,6 +11,7 @@ import { AIAnalysisButton } from "@/components/ai-analysis-button"
 import { SUPPLEMENTS_DATABASE, getProductsByBrand, getCompatibleProducts, type SupplementProduct } from "@/lib/data/supplements-database"
 import { FOODS_DATABASE, filterFoodsByConstraints, getFoodsForMealTime, findAlternative, calculatePortionForMacro, type FoodItem } from "@/lib/data/foods-database"
 import { NutrigenomicsPanel } from "@/components/nutrigenomics-panel"
+import { FoodDiary } from "@/components/food-diary"
 
 interface NutritionPlanProps {
   athleteData: AthleteDataType | null
@@ -3300,11 +3301,12 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
             </CardHeader>
             <CardContent>
 <Tabs defaultValue={activeTab} onValueChange={(value) => setActiveTab(value)}>
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="biomap">BioMap</TabsTrigger>
-                    <TabsTrigger value="nutrition">Nutrition Plan</TabsTrigger>
-                    <TabsTrigger value="fueling">Fueling</TabsTrigger>
-                  </TabsList>
+<TabsList className="grid w-full grid-cols-4">
+  <TabsTrigger value="biomap">BioMap</TabsTrigger>
+  <TabsTrigger value="nutrition">Nutrition Plan</TabsTrigger>
+  <TabsTrigger value="fueling">Fueling</TabsTrigger>
+  <TabsTrigger value="diario">Diario</TabsTrigger>
+  </TabsList>
                 <TabsContent value="biomap">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Metabolic Profile */}
@@ -4124,8 +4126,13 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
                     />
                   </div>
                 </div>
-                </TabsContent>
-              </Tabs>
+</TabsContent>
+  
+  {/* Diario Alimentare Tab */}
+  <TabsContent value="diario">
+    <FoodDiary athleteData={athleteData} />
+  </TabsContent>
+  </Tabs>
             </CardContent>
           </Card>
         </>
