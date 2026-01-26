@@ -811,23 +811,64 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
     setShowInlineEditor(false)
   }
 
-  const saveEditorWorkout = () => {
-    if (editorBlocks.length === 0) {
-      alert("Aggiungi almeno un blocco")
-      return
+const saveEditorWorkout = async () => {
+  if (editorBlocks.length === 0) {
+    alert("Aggiungi almeno un blocco")
+    return
+  }
+  
+  if (!athleteData?.id) {
+    alert("Errore: dati atleta non disponibili")
+    return
+  }
+  
+  const totalDuration = getTotalDuration()
+  const mainZone = editorBlocks.find((b) => b.type !== "warmup" && b.type !== "cooldown")?.zone || "Z2"
+  
+  // Calculate metrics
+  const calculatedTSS = Math.round(calculateTotalTSS(editorBlocks, calculateBlockDuration))
+  const avgPower = estimateAvgPower(editorBlocks, ftpWatts, calculateBlockDuration)
+  const kcal = calculateKcal(avgPower, totalDuration)
+  
+  const activityDateStr = selectedDate.toISOString().split('T')[0]
+  
+  // Save directly to database
+  try {
+    setSaving(true)
+    const workoutData = {
+      athlete_id: athleteData.id,
+      activity_date: activityDateStr,
+      activity_type: editorSport,
+      workout_type: editorBlocks.some((b) => b.type === "intervals")
+        ? "intervals"
+        : editorBlocks[0]?.type || "endurance",
+      title: editorTitle || `Allenamento ${DAY_NAMES[selectedDay]}`,
+      description: editorNotes,
+      duration_minutes: totalDuration,
+      target_zone: mainZone,
+      tss: calculatedTSS,
+      average_power: avgPower,
+      calories: kcal,
+      intervals: { blocks: editorBlocks },
+      planned: true,
+      completed: false,
+      source: "vyria_builder",
     }
-    const totalDuration = getTotalDuration()
-    const mainZone = editorBlocks.find((b) => b.type !== "warmup" && b.type !== "cooldown")?.zone || "Z2"
-
-    // Calculate metrics
-    const calculatedTSS = Math.round(calculateTotalTSS(editorBlocks, calculateBlockDuration))
-    const avgPower = estimateAvgPower(editorBlocks, ftpWatts, calculateBlockDuration)
-    const kcal = calculateKcal(avgPower, totalDuration)
     
+    console.log("[v0] Saving workout to DB:", workoutData)
+    
+    const { error } = await supabase.from("training_activities").insert(workoutData)
+    
+    if (error) {
+      console.error("[v0] Error saving workout:", error)
+      throw error
+    }
+    
+    // Also add to local state for immediate UI update
     const newSession: TrainingSession = {
       sessionId: generateId(),
       dayIndex: selectedDay,
-      activityDate: selectedDate.toISOString().split('T')[0], // YYYY-MM-DD format
+      activityDate: activityDateStr,
       sport: editorSport,
       workoutType: editorBlocks.some((b) => b.type === "intervals")
         ? "intervals"
@@ -843,7 +884,16 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
       completed: false,
     }
     setGeneratedPlan((prev) => [...prev, newSession])
+    
+    alert(`Allenamento salvato per ${activityDateStr}!`)
+    onUpdate?.() // Refresh calendar data
     resetEditor()
+  } catch (err) {
+    console.error("[v0] saveEditorWorkout error:", err)
+    alert("Errore nel salvataggio dell'allenamento")
+  } finally {
+    setSaving(false)
+  }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1541,23 +1591,55 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Day Selector */}
-              <div className="mb-6">
-                <Label className="text-sm font-medium mb-2 block">Seleziona Giorno</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {DAY_NAMES.map((day, idx) => (
-                    <Button
-                      key={day}
-                      variant={selectedDay === idx ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedDay(idx)}
-                      className={selectedDay === idx ? "bg-fuchsia-600 hover:bg-fuchsia-700" : "bg-transparent"}
-                    >
-                      {day.slice(0, 3)}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+{/* Date Selector */}
+  <div className="mb-6 space-y-3">
+  <Label className="text-sm font-medium">Seleziona Data</Label>
+  <div className="flex items-center gap-4 flex-wrap">
+    <div className="flex items-center gap-2">
+      <CalendarRange className="h-4 w-4 text-muted-foreground" />
+      <input
+        type="date"
+        value={selectedDate.toISOString().split('T')[0]}
+        onChange={(e) => {
+          const newDate = new Date(e.target.value)
+          setSelectedDate(newDate)
+          const dayOfWeek = newDate.getDay()
+          setSelectedDay(dayOfWeek === 0 ? 6 : dayOfWeek - 1)
+        }}
+        className="bg-background border border-border rounded px-3 py-2 text-sm"
+      />
+    </div>
+    <Badge variant="outline" className="text-sm py-1.5 px-3">
+      {DAY_NAMES[selectedDay]} {selectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })}
+    </Badge>
+  </div>
+  {/* Quick day buttons */}
+  <div className="flex gap-2 flex-wrap">
+  {DAY_NAMES.map((day, idx) => {
+    // Calculate the actual date for this day of the current week
+    const today = new Date()
+    const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1
+    const diff = idx - currentDayOfWeek
+    const targetDate = new Date(today)
+    targetDate.setDate(today.getDate() + diff)
+    
+    return (
+      <Button
+        key={day}
+        variant={selectedDay === idx ? "default" : "outline"}
+        size="sm"
+        onClick={() => {
+          setSelectedDay(idx)
+          setSelectedDate(targetDate)
+        }}
+        className={selectedDay === idx ? "bg-fuchsia-600 hover:bg-fuchsia-700" : "bg-transparent"}
+      >
+        {day.slice(0, 3)}
+      </Button>
+    )
+  })}
+  </div>
+  </div>
               
               {/* Show inline editor or button to create */}
               {showInlineEditor ? (
