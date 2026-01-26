@@ -34,13 +34,15 @@ import {
   TrendingUp, Heart, Zap, Clock, Target, Plus, RefreshCw,
   Trash2, Copy, MoveHorizontal, Edit, MoreVertical, X,
   Sparkles, User, Library, GripVertical, Check, AlertTriangle,
-  Moon, Sun, Thermometer, Wind, Brain
+  Moon, Sun, Thermometer, Wind, Brain, Upload, BarChart3, Link2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { WorkoutDetailModal } from "@/components/workout-detail-modal"
 import { ActivityDetailView } from "@/components/activity-detail-view"
 import { WorkoutLibrary } from "@/components/workout-library"
+import { ActivityAnalysis } from "@/components/activity-analysis"
+import { ActivityStatistics } from "@/components/activity-statistics"
 import { analyzeReadiness, type BiometricsInput } from "@/lib/readiness-engine"
 import type { AthleteDataType } from "@/components/dashboard-content"
 
@@ -164,7 +166,7 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
   const supabase = createClient()
   
   // View state
-  const [view, setView] = useState<'month' | 'week' | 'day'>('month')
+  const [view, setView] = useState<'month' | 'week' | 'day' | 'analysis' | 'statistics'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   
@@ -795,26 +797,36 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                   <CalendarDays className="h-4 w-4" />
                   <span className="hidden sm:inline">Giorno</span>
                 </TabsTrigger>
+                <TabsTrigger value="analysis" className="flex items-center gap-1">
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Analysis</span>
+                </TabsTrigger>
+                <TabsTrigger value="statistics" className="flex items-center gap-1">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="hidden sm:inline">Statistics</span>
+                </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {/* Navigation */}
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={() => navigate('prev')}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" onClick={goToToday}>
-                Oggi
-              </Button>
-              <h2 className="text-lg font-semibold min-w-[180px] text-center">
-                {view === 'month' && format(currentDate, 'MMMM yyyy', { locale: it })}
-                {view === 'week' && `Settimana ${getWeek(currentDate)} - ${format(currentDate, 'yyyy')}`}
-                {view === 'day' && format(selectedDate || currentDate, "EEEE d MMMM yyyy", { locale: it })}
-              </h2>
-              <Button variant="outline" size="icon" onClick={() => navigate('next')}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            {/* Navigation - only show for calendar views */}
+            {(view === 'month' || view === 'week' || view === 'day') && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => navigate('prev')}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" onClick={goToToday}>
+                  Oggi
+                </Button>
+                <h2 className="text-lg font-semibold min-w-[180px] text-center">
+                  {view === 'month' && format(currentDate, 'MMMM yyyy', { locale: it })}
+                  {view === 'week' && `Settimana ${getWeek(currentDate)} - ${format(currentDate, 'yyyy')}`}
+                  {view === 'day' && format(selectedDate || currentDate, "EEEE d MMMM yyyy", { locale: it })}
+                </h2>
+                <Button variant="outline" size="icon" onClick={() => navigate('next')}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex items-center gap-2">
@@ -822,6 +834,32 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                 <Library className="h-4 w-4 mr-1" />
                 Biblioteca
               </Button>
+              <Button variant="outline" size="sm" onClick={() => document.getElementById('fit-import-input')?.click()}>
+                <Upload className="h-4 w-4 mr-1" />
+                Import FIT
+              </Button>
+              <input
+                id="fit-import-input"
+                type="file"
+                accept=".fit,.FIT,.fit.gz"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const formData = new FormData()
+                  formData.append('file', file)
+                  try {
+                    const res = await fetch('/api/import-fit', { method: 'POST', body: formData })
+                    if (res.ok) {
+                      // Refresh activities
+                      window.location.reload()
+                    }
+                  } catch (err) {
+                    console.error('Import error:', err)
+                  }
+                  e.target.value = ''
+                }}
+              />
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-1" />
                 Nuovo
@@ -832,21 +870,27 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
       </Card>
 
       {/* Main Content */}
-      <Card>
-        <CardContent className="p-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <>
-              {view === 'month' && renderMonthView()}
-              {view === 'week' && renderWeekView()}
-              {view === 'day' && renderDayView()}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      {view === 'analysis' ? (
+        <ActivityAnalysis athleteId={athleteData?.id} hrZones={athleteData?.metabolic_profiles?.[0]?.hr_zones || null} />
+      ) : view === 'statistics' ? (
+        <ActivityStatistics athleteId={athleteData?.id} />
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {view === 'month' && renderMonthView()}
+                {view === 'week' && renderWeekView()}
+                {view === 'day' && renderDayView()}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Activity Detail Modal */}
       {selectedActivity && (
