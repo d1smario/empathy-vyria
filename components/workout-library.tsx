@@ -1,5 +1,8 @@
 "use client"
 
+import { cn } from "@/lib/utils"
+import { Clock, Zap } from "lucide-react"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -434,11 +437,11 @@ export function WorkoutLibrary({
               <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="Sport" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border border-border">
                 {SPORTS.map((sport) => (
-                  <SelectItem key={sport.id} value={sport.id}>
+                  <SelectItem key={sport.id} value={sport.id} className="hover:bg-muted">
                     <div className="flex items-center gap-2">
-                      <sport.icon className="h-4 w-4" />
+                      <sport.icon className={cn("h-4 w-4", sport.color)} />
                       {sport.name}
                     </div>
                   </SelectItem>
@@ -449,11 +452,11 @@ export function WorkoutLibrary({
               <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border border-border">
                 {WORKOUT_TYPES.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
+                  <SelectItem key={type.id} value={type.id} className="hover:bg-muted">
                     <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${type.color}`} />
+                      <div className={cn("h-3 w-3 rounded-full", type.color)} />
                       {type.name}
                     </div>
                   </SelectItem>
@@ -522,19 +525,89 @@ export function WorkoutLibrary({
 
                   return (
                     <Card key={workout.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">
-                          <span>{SportIcon}</span>
-                          <span>{workout.name}</span>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center justify-between text-base">
+                          <div className="flex items-center gap-2">
+                            <span>{SportIcon}</span>
+                            <span>{workout.name}</span>
+                          </div>
+                          <Badge className={cn("text-xs text-white", typeInfo?.color || "bg-slate-500")}>
+                            {typeInfo?.name || workout.workout_type}
+                          </Badge>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-2">
-                        <div className="text-sm text-muted-foreground">
-                          <p>
-                            {workout.duration_minutes} min • {workout.tss_estimate} TSS
-                          </p>
-                          {workout.description && <p className="mt-1 line-clamp-2">{workout.description}</p>}
+                      <CardContent className="space-y-3">
+                        {/* Stats Row */}
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-medium">{workout.duration_minutes || 60} min</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Zap className="h-3.5 w-3.5 text-orange-500" />
+                            <span className="font-medium text-orange-500">{workout.tss_estimate || 0} TSS</span>
+                          </div>
+                          {workout.if_estimate && (
+                            <div className="flex items-center gap-1">
+                              <Activity className="h-3.5 w-3.5 text-fuchsia-500" />
+                              <span className="font-medium text-fuchsia-500">IF {workout.if_estimate.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <Badge variant="outline" className="ml-auto">
+                            {workout.primary_zone || "Z2"}
+                          </Badge>
                         </div>
+                        
+                        {/* TrainingPeaks-style Block Chart */}
+                        {workout.intervals && workout.intervals.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Struttura</div>
+                            <div className="h-10 flex gap-0.5 rounded overflow-hidden bg-muted/30">
+                              {workout.intervals.map((block, idx) => {
+                                const zoneHeightMap: Record<string, string> = {
+                                  Z1: "h-3", Z2: "h-4", Z3: "h-5", Z4: "h-6", Z5: "h-7", Z6: "h-8", Z7: "h-9", Z8: "h-10"
+                                }
+                                const durationMin = block.durationUnit === "sec" ? block.duration / 60 : block.duration
+                                const totalDuration = workout.intervals!.reduce((sum, b) => 
+                                  sum + (b.durationUnit === "sec" ? b.duration / 60 : b.duration), 0)
+                                const widthPercent = (durationMin / totalDuration) * 100
+                                
+                                return (
+                                  <div
+                                    key={block.id || idx}
+                                    className="flex items-end justify-center"
+                                    style={{ width: `${widthPercent}%`, minWidth: '8px' }}
+                                    title={`${block.name}: ${block.duration}${block.durationUnit} @ ${block.zone}`}
+                                  >
+                                    <div 
+                                      className={cn(
+                                        "w-full rounded-t transition-all",
+                                        zoneHeightMap[block.zone] || "h-4",
+                                        ZONE_COLORS[block.zone] || "bg-green-500"
+                                      )}
+                                    />
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>0'</span>
+                              <span>{workout.duration_minutes}'</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="h-10 flex items-end rounded overflow-hidden bg-muted/30">
+                            <div className={cn(
+                              "w-full rounded-t h-5",
+                              ZONE_COLORS[workout.primary_zone || "Z2"] || "bg-green-500"
+                            )} />
+                          </div>
+                        )}
+                        
+                        {workout.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{workout.description}</p>
+                        )}
+                        
                         {workout.tags && workout.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {workout.tags.map((tag) => (
@@ -601,11 +674,11 @@ export function WorkoutLibrary({
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border border-border">
                     {SPORTS.filter((s) => s.id !== "all").map((sport) => (
-                      <SelectItem key={sport.id} value={sport.id}>
+                      <SelectItem key={sport.id} value={sport.id} className="hover:bg-muted">
                         <div className="flex items-center gap-2">
-                          <sport.icon className="h-4 w-4" />
+                          <sport.icon className={cn("h-4 w-4", sport.color)} />
                           {sport.name}
                         </div>
                       </SelectItem>
@@ -623,11 +696,11 @@ export function WorkoutLibrary({
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border border-border">
                     {WORKOUT_TYPES.filter((t) => t.id !== "all").map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
+                      <SelectItem key={type.id} value={type.id} className="hover:bg-muted">
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${type.color}`} />
+                          <div className={cn("h-3 w-3 rounded-full", type.color)} />
                           {type.name}
                         </div>
                       </SelectItem>
@@ -663,11 +736,11 @@ export function WorkoutLibrary({
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border border-border">
                     {ZONES.map((zone) => (
-                      <SelectItem key={zone} value={zone}>
+                      <SelectItem key={zone} value={zone} className="hover:bg-muted">
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${ZONE_COLORS[zone]}`} />
+                          <div className={cn("h-3 w-3 rounded-full", ZONE_COLORS[zone])} />
                           {zone}
                         </div>
                       </SelectItem>
