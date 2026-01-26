@@ -725,7 +725,7 @@ export function MetabolicProfileGenerator({
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.values(zones).map((zone) => (
+                        {zones.map((zone) => (
                           <tr key={zone.id} className="border-b border-gray-800">
                             <td className="py-3 px-2">
                               <div className="flex items-center gap-2">
