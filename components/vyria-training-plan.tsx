@@ -137,13 +137,18 @@ interface VyriaTrainingPlanProps {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const SPORTS = [
-  { id: "cycling", name: "Ciclismo", icon: Bike },
-  { id: "running", name: "Corsa", icon: Footprints },
-  { id: "swimming", name: "Nuoto", icon: Waves },
-  { id: "triathlon", name: "Triathlon", icon: Activity },
-  { id: "trail_running", name: "Trail Running", icon: Mountain },
-  { id: "gym", name: "Palestra", icon: Dumbbell },
-]
+  { id: "cycling", name: "Ciclismo", icon: Bike, color: "text-yellow-500", supportsPower: true },
+  { id: "running", name: "Corsa", icon: Footprints, color: "text-green-500", supportsPower: false },
+  { id: "swimming", name: "Nuoto", icon: Waves, color: "text-blue-500", supportsPower: false },
+  { id: "triathlon", name: "Triathlon", icon: Activity, color: "text-fuchsia-500", supportsPower: true },
+  { id: "trail_running", name: "Trail Running", icon: Mountain, color: "text-emerald-500", supportsPower: false },
+  { id: "mountain_bike", name: "MTB", icon: Bike, color: "text-orange-500", supportsPower: true },
+  { id: "gravel", name: "Gravel", icon: Bike, color: "text-amber-500", supportsPower: true },
+  { id: "cross_country_ski", name: "Sci Fondo", icon: Activity, color: "text-cyan-500", supportsPower: false },
+  { id: "ski_mountaineering", name: "Scialpinismo", icon: Mountain, color: "text-sky-500", supportsPower: false },
+  { id: "rowing", name: "Canottaggio", icon: Waves, color: "text-indigo-500", supportsPower: true },
+  { id: "gym", name: "Palestra", icon: Dumbbell, color: "text-red-500", supportsPower: false },
+  ]
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 
