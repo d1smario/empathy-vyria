@@ -974,6 +974,21 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Activity Detail View Modal */}
+      <Dialog open={showActivityDetail} onOpenChange={setShowActivityDetail}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+          {selectedActivity && (
+            <ActivityDetailView
+              activity={selectedActivity}
+              onClose={() => {
+                setShowActivityDetail(false)
+                setSelectedActivity(null)
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
