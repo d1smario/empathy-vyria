@@ -33,6 +33,7 @@ import VyriaTrainingPlan from "@/components/vyria-training-plan"
 import DailyTrainingReport from "@/components/daily-training-report"
 import { MicrobiomeEpigenetic } from "@/components/microbiome-epigenetic"
 import { ActivityDashboard } from "@/components/activity-dashboard"
+import { ActivitiesHub } from "@/components/activities-hub"
 import { IntegrationsPanel } from "@/components/integrations-panel"
 import LifestyleSection from "@/components/lifestyle-section"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
@@ -203,16 +204,12 @@ export function DashboardContent({
                       <span className="hidden sm:inline">Analisi</span>
                     </TabsTrigger>
                     <TabsTrigger value="activities" className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
+                      <CalendarDays className="h-4 w-4" />
                       <span className="hidden sm:inline">Activities</span>
                     </TabsTrigger>
                     <TabsTrigger value="vyria" className="flex items-center gap-2">
                       <Wand2 className="h-4 w-4" />
                       <span className="hidden sm:inline">VYRIA</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="training" className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      <span className="hidden sm:inline">Training</span>
                     </TabsTrigger>
                     <TabsTrigger value="lifestyle" className="flex items-center gap-2">
                       <Flower2 className="h-4 w-4" />
@@ -228,7 +225,7 @@ export function DashboardContent({
                     </TabsTrigger>
                     <TabsTrigger value="reports" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
-                      <span className="hidden sm:inline">Daily Log</span>
+                      <span className="hidden sm:inline">BioMap</span>
                     </TabsTrigger>
                     <TabsTrigger value="devices" className="flex items-center gap-2">
                       <Smartphone className="h-4 w-4" />
@@ -250,16 +247,14 @@ export function DashboardContent({
                 </TabsContent>
 
                 <TabsContent value="activities" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-                  <ActivityDashboard athleteData={athleteData} userName={profile?.full_name} />
+                  <ActivitiesHub athleteData={athleteData} userName={profile?.full_name} />
                 </TabsContent>
 
                 <TabsContent value="vyria" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
                   <VyriaTrainingPlan athleteData={athleteData} userName={profile?.full_name} />
                 </TabsContent>
 
-                <TabsContent value="training" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-                  <WeeklyTraining athleteData={athleteData} userName={profile?.full_name} workouts={weeklyWorkouts} />
-                </TabsContent>
+                
 
                 <TabsContent value="lifestyle" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
                   <LifestyleSection athleteData={athleteData} userName={profile?.full_name} />
@@ -285,11 +280,7 @@ export function DashboardContent({
                 </TabsContent>
 
                 <TabsContent value="reports" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-                  {athleteData?.id ? (
-                    <DailyTrainingReport athleteId={athleteData.id} athleteName={profile?.full_name || undefined} />
-                  ) : (
-                    <BioMapReport athleteData={athleteData} userName={profile?.full_name} />
-                  )}
+                  <BioMapReport athleteData={athleteData} userName={profile?.full_name} />
                 </TabsContent>
 
                 <TabsContent value="devices" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
