@@ -903,13 +903,12 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
         </Card>
       )}
 
-      {/* Activity Detail Modal */}
+      {/* Activity Detail View - Fullscreen with charts */}
       {selectedActivity && (
-        <WorkoutDetailModal
-          workout={selectedActivity}
-          isOpen={!!selectedActivity}
+        <ActivityDetailView
+          activity={selectedActivity}
           onClose={() => setSelectedActivity(null)}
-          athleteData={athleteData}
+          athleteFTP={athleteData?.metabolic_profiles?.[0]?.ftp || 250}
         />
       )}
 
@@ -959,18 +958,7 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Activity Detail View - Fullscreen Modal */}
-      {showActivityDetail && selectedActivity && (
-        <ActivityDetailView
-          activity={selectedActivity}
-          onClose={() => {
-            setShowActivityDetail(false)
-            setSelectedActivity(null)
-          }}
-          athleteFTP={athleteData?.metabolic_profiles?.[0]?.ftp || 250}
-        />
-      )}
-    </div>
+      </div>
   )
 }
 
