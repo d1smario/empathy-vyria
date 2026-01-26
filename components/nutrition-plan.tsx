@@ -1552,6 +1552,82 @@ const MEAL_DATABASE: Record<
         { name: "Miele", grams: 10 },
       ],
     },
+    // ALTERNATIVE SENZA LATTOSIO
+    {
+      name: "Latte di mandorla caldo con miele",
+      cho: 16,
+      fat: 4,
+      pro: 2,
+      kcal: 108,
+      tags: ["senza-lattosio", "vegan"],
+      ingredients: [
+        { name: "Latte di mandorla", grams: 200 },
+        { name: "Miele", grams: 10 },
+      ],
+    },
+    {
+      name: "Latte di soia caldo con cannella",
+      cho: 12,
+      fat: 4,
+      pro: 8,
+      kcal: 116,
+      tags: ["senza-lattosio", "vegan", "high-protein"],
+      ingredients: [
+        { name: "Latte di soia", grams: 200 },
+        { name: "Cannella", grams: 2 },
+        { name: "Miele", grams: 8 },
+      ],
+    },
+    {
+      name: "Latte di avena caldo con cacao",
+      cho: 22,
+      fat: 3,
+      pro: 3,
+      kcal: 127,
+      tags: ["senza-lattosio", "vegan"],
+      ingredients: [
+        { name: "Latte di avena", grams: 200 },
+        { name: "Cacao amaro", grams: 5 },
+        { name: "Miele", grams: 8 },
+      ],
+    },
+    {
+      name: "Banana con burro di arachidi",
+      cho: 30,
+      fat: 16,
+      pro: 8,
+      kcal: 292,
+      tags: ["senza-lattosio", "vegan"],
+      ingredients: [
+        { name: "Banana", grams: 120 },
+        { name: "Burro di arachidi", grams: 20 },
+      ],
+    },
+    {
+      name: "Tofu silken con miele e semi",
+      cho: 10,
+      fat: 6,
+      pro: 12,
+      kcal: 142,
+      tags: ["senza-lattosio", "vegan", "high-protein"],
+      ingredients: [
+        { name: "Tofu silken", grams: 150 },
+        { name: "Miele", grams: 10 },
+        { name: "Semi di zucca", grams: 10 },
+      ],
+    },
+    {
+      name: "Tisana con biscotti di riso",
+      cho: 25,
+      fat: 2,
+      pro: 2,
+      kcal: 126,
+      tags: ["senza-lattosio", "gluten-free"],
+      ingredients: [
+        { name: "Tisana camomilla", grams: 200 },
+        { name: "Biscotti di riso", grams: 30 },
+      ],
+    },
     {
       name: "Mandorle e cioccolato fondente",
       cho: 15,
@@ -2496,22 +2572,34 @@ if (annualPlan?.config_json?.training_preferences) {
     const allergies = (athleteConstraints.allergies || []).map(a => a.toLowerCase())
     const foodsToAvoid = (athleteConstraints.foods_to_avoid || []).map(f => f.toLowerCase())
     
+    const hasLactoseIntolerance = intolerances.some(i => i.includes('lattosio') || i.includes('latticini'))
+    const hasGlutenIntolerance = intolerances.some(i => i.includes('glutine')) || allergies.some(a => a.includes('glutine') || a.includes('celiac'))
+    const hasEggAllergy = allergies.some(a => a.includes('uova') || a.includes('uovo'))
+    const hasNutAllergy = allergies.some(a => a.includes('frutta secca') || a.includes('noci') || a.includes('arachidi'))
+    const hasNickelAllergy = allergies.some(a => a.includes('nichel'))
+    
     return meals.filter(meal => {
-      const ingredients = (meal.ingredients || []).map(i => i.toLowerCase())
+      // FIX: Extract ingredient names correctly (they are objects with {name, grams})
+      const ingredientNames = (meal.ingredients || []).map(i => (i.name || '').toLowerCase())
       const tags = (meal.tags || []).map(t => t.toLowerCase())
       
-      // Check for lactose intolerance
-      if (intolerances.some(i => i.includes('lattosio') || i.includes('latticini'))) {
-        if (ingredients.some(ing => 
+      // Check tags first - quick exclusion
+      if (hasLactoseIntolerance && tags.includes('latticini')) return false
+      if (hasGlutenIntolerance && tags.includes('glutine') && !tags.includes('gluten-free')) return false
+      if (hasNutAllergy && tags.includes('fruttasecca')) return false
+      
+      // Check for lactose intolerance in ingredients
+      if (hasLactoseIntolerance) {
+        if (ingredientNames.some(ing => 
           ing.includes('latte') || ing.includes('yogurt') || ing.includes('formaggio') || 
           ing.includes('ricotta') || ing.includes('mozzarella') || ing.includes('parmigiano') ||
-          ing.includes('burro') || ing.includes('panna')
+          ing.includes('burro') || ing.includes('panna') || ing.includes('cottage')
         )) return false
       }
       
-      // Check for gluten intolerance/celiac
-      if (intolerances.some(i => i.includes('glutine')) || allergies.some(a => a.includes('glutine') || a.includes('celiac'))) {
-        if (ingredients.some(ing => 
+      // Check for gluten intolerance/celiac - only exclude if NOT gluten-free tagged
+      if (hasGlutenIntolerance) {
+        if (ingredientNames.some(ing => 
           ing.includes('pane') || ing.includes('pasta') || ing.includes('farina') || 
           ing.includes('avena') || ing.includes('orzo') || ing.includes('farro') ||
           ing.includes('seitan') || ing.includes('crackers')
@@ -2519,21 +2607,21 @@ if (annualPlan?.config_json?.training_preferences) {
       }
       
       // Check for egg allergy
-      if (allergies.some(a => a.includes('uova') || a.includes('uovo'))) {
-        if (ingredients.some(ing => ing.includes('uova') || ing.includes('uovo'))) return false
+      if (hasEggAllergy) {
+        if (ingredientNames.some(ing => ing.includes('uova') || ing.includes('uovo'))) return false
       }
       
       // Check for nut allergy
-      if (allergies.some(a => a.includes('frutta secca') || a.includes('noci') || a.includes('arachidi'))) {
-        if (ingredients.some(ing => 
+      if (hasNutAllergy) {
+        if (ingredientNames.some(ing => 
           ing.includes('noci') || ing.includes('mandorle') || ing.includes('nocciole') || 
           ing.includes('arachidi') || ing.includes('pistacchi') || ing.includes('anacardi')
         )) return false
       }
       
       // Check for nickel allergy
-      if (allergies.some(a => a.includes('nichel'))) {
-        if (ingredients.some(ing => 
+      if (hasNickelAllergy) {
+        if (ingredientNames.some(ing => 
           ing.includes('pomodoro') || ing.includes('spinaci') || ing.includes('cacao') || 
           ing.includes('cioccolato') || ing.includes('lenticchie') || ing.includes('fagioli')
         )) return false
@@ -2541,7 +2629,7 @@ if (annualPlan?.config_json?.training_preferences) {
       
       // Check AI-specified foods to avoid
       if (foodsToAvoid.length > 0) {
-        if (ingredients.some(ing => foodsToAvoid.some(avoid => ing.includes(avoid)))) return false
+        if (ingredientNames.some(ing => foodsToAvoid.some(avoid => ing.includes(avoid)))) return false
       }
       
       return true
