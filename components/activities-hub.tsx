@@ -215,16 +215,25 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Fetch activities from training_activities
+        // Get athlete_id for the user
+        const { data: athleteRecord } = await supabase
+          .from('athletes')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+        
+        const athleteId = athleteRecord?.id
+
+        // Fetch activities from training_activities using athlete_id
         const { data: trainingData } = await supabase
           .from('training_activities')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('athlete_id', athleteId)
           .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
           .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
           .order('activity_date', { ascending: true })
 
-        // Fetch imported activities
+        // Fetch imported activities using user_id (imported_activities has user_id)
         const { data: importedData } = await supabase
           .from('imported_activities')
           .select('*')
