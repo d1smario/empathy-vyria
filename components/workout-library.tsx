@@ -438,14 +438,17 @@ export function WorkoutLibrary({
                 <SelectValue placeholder="Sport" />
               </SelectTrigger>
               <SelectContent className="bg-background border border-border">
-                {SPORTS.map((sport) => (
-                  <SelectItem key={sport.id} value={sport.id} className="hover:bg-muted">
-                    <div className="flex items-center gap-2">
-                      <sport.icon className={cn("h-4 w-4", sport.color)} />
-                      {sport.name}
-                    </div>
-                  </SelectItem>
-                ))}
+                {SPORTS.map((sport) => {
+                  const SportIconComp = sport.icon
+                  return (
+                    <SelectItem key={sport.id} value={sport.id} className="hover:bg-muted">
+                      <div className="flex items-center gap-2">
+                        <SportIconComp className={cn("h-4 w-4", sport.color)} />
+                        {sport.name}
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -528,7 +531,7 @@ export function WorkoutLibrary({
                       <CardHeader className="pb-2">
                         <CardTitle className="flex items-center justify-between text-base">
                           <div className="flex items-center gap-2">
-                            <span>{SportIcon}</span>
+                            <SportIcon className="h-4 w-4" />
                             <span>{workout.name}</span>
                           </div>
                           <Badge className={cn("text-xs text-white", typeInfo?.color || "bg-slate-500")}>
