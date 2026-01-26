@@ -45,6 +45,7 @@ import { ActivityAnalysis } from "@/components/activity-analysis"
 import { ActivityStatistics } from "@/components/activity-statistics"
 import { analyzeReadiness, type BiometricsInput } from "@/lib/readiness-engine"
 import type { AthleteDataType } from "@/components/dashboard-content"
+import { MiniActivityChart } from "@/components/mini-activity-chart" // Added import for MiniActivityChart
 
 // Types
 interface DailyBiometrics {
@@ -673,7 +674,7 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                       <div className="mt-3">
                         <div className="text-xs text-muted-foreground mb-1">Struttura</div>
                         <div className="flex gap-1 h-6">
-                          {activity.intervals.blocks.map((block, bIdx) => (
+                          {activity.intervals.blocks.map((block: any, bIdx: number) => (
                             <div
                               key={bIdx}
                               className={cn(
@@ -688,6 +689,32 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                           ))}
                         </div>
                       </div>
+                    )}
+                    
+                    {/* Mini Power/HR Chart for imported activities */}
+                    {activity.raw_data?.d && activity.raw_data.d.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-xs text-muted-foreground mb-1">Power / HR</div>
+                        <div className="h-16 w-full">
+                          <MiniActivityChart data={activity.raw_data.d} />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Click to view details */}
+                    {(activity.source === 'imported' || activity.raw_data) && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3 w-full bg-transparent"
+                        onClick={() => {
+                          setSelectedActivity(activity)
+                          setShowActivityDetail(true)
+                        }}
+                      >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Vedi Analisi Dettagliata
+                      </Button>
                     )}
                   </div>
                 )
