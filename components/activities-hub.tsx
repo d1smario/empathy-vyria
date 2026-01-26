@@ -675,28 +675,6 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                       </div>
                     </div>
 
-                    {/* Intensity blocks */}
-                    {activity.intervals?.blocks && activity.intervals.blocks.length > 0 && (
-                      <div className="mt-3">
-                        <div className="text-xs text-muted-foreground mb-1">Struttura</div>
-                        <div className="flex gap-1 h-6">
-                          {activity.intervals.blocks.map((block: any, bIdx: number) => (
-                            <div
-                              key={bIdx}
-                              className={cn(
-                                "rounded flex items-center justify-center text-[9px] text-white font-medium",
-                                getZoneColor(block.zone)
-                              )}
-                              style={{ flex: block.duration }}
-                              title={`${block.type} - ${block.duration}' ${block.zone}`}
-                            >
-                              {block.duration > 5 && block.zone}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
                     {/* Mini Power/HR Chart for imported activities */}
                     {activity.raw_data?.d && activity.raw_data.d.length > 0 && (
                       <div className="mt-3">
