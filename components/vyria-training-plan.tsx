@@ -829,7 +829,7 @@ const saveEditorWorkout = async () => {
   return
   }
   
-  // Get user_id from auth to ensure it matches activities-hub query
+  // Get user_id from auth
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.id) {
   alert("Errore: utente non autenticato")
