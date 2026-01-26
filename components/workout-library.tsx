@@ -88,18 +88,18 @@ interface WorkoutLibraryProps {
 
 // Constants
 const SPORTS = [
-  { id: "all", name: "Tutti", icon: Activity, color: "text-slate-500" },
-  { id: "cycling", name: "Ciclismo", icon: Bike, color: "text-yellow-500" },
-  { id: "running", name: "Corsa", icon: Footprints, color: "text-green-500" },
-  { id: "swimming", name: "Nuoto", icon: Waves, color: "text-blue-500" },
-  { id: "triathlon", name: "Triathlon", icon: Activity, color: "text-fuchsia-500" },
-  { id: "trail_running", name: "Trail Running", icon: Mountain, color: "text-emerald-500" },
-  { id: "mountain_bike", name: "MTB", icon: Bike, color: "text-orange-500" },
-  { id: "gravel", name: "Gravel", icon: Bike, color: "text-amber-500" },
-  { id: "cross_country_ski", name: "Sci Fondo", icon: Activity, color: "text-cyan-500" },
-  { id: "ski_mountaineering", name: "Scialpinismo", icon: Mountain, color: "text-sky-500" },
-  { id: "rowing", name: "Canottaggio", icon: Waves, color: "text-indigo-500" },
-  { id: "gym", name: "Palestra", icon: Dumbbell, color: "text-red-500" },
+  { id: "all", name: "Tutti", icon: Activity, color: "text-slate-500", supportsPower: false },
+  { id: "cycling", name: "Ciclismo", icon: Bike, color: "text-yellow-500", supportsPower: true },
+  { id: "running", name: "Corsa", icon: Footprints, color: "text-green-500", supportsPower: false },
+  { id: "swimming", name: "Nuoto", icon: Waves, color: "text-blue-500", supportsPower: false },
+  { id: "triathlon", name: "Triathlon", icon: Activity, color: "text-fuchsia-500", supportsPower: true },
+  { id: "trail_running", name: "Trail Running", icon: Mountain, color: "text-emerald-500", supportsPower: false },
+  { id: "mountain_bike", name: "MTB", icon: Bike, color: "text-orange-500", supportsPower: true },
+  { id: "gravel", name: "Gravel", icon: Bike, color: "text-amber-500", supportsPower: true },
+  { id: "cross_country_ski", name: "Sci Fondo", icon: Activity, color: "text-cyan-500", supportsPower: false },
+  { id: "ski_mountaineering", name: "Scialpinismo", icon: Mountain, color: "text-sky-500", supportsPower: false },
+  { id: "rowing", name: "Canottaggio", icon: Waves, color: "text-indigo-500", supportsPower: true },
+  { id: "gym", name: "Palestra", icon: Dumbbell, color: "text-red-500", supportsPower: false },
 ]
 
 const WORKOUT_TYPES = [
@@ -650,50 +650,66 @@ export function WorkoutLibrary({
 
       {/* Create/Edit Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
-            <DialogTitle>{editingWorkout ? "Modifica Allenamento" : "Nuovo Allenamento"}</DialogTitle>
-            <DialogDescription>Crea un template di allenamento riutilizzabile</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-fuchsia-500" />
+              {editingWorkout ? "Modifica Allenamento" : "Crea Nuovo Allenamento"}
+            </DialogTitle>
+            <DialogDescription>Costruisci un allenamento strutturato con blocchi di intensita</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-6">
+            {/* Sport Selection Grid - VYRIA Style */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Sport Principale</Label>
+              <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                {SPORTS.filter((s) => s.id !== "all").map((sport) => {
+                  const Icon = sport.icon
+                  return (
+                    <button
+                      key={sport.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, sport: sport.id })}
+                      className={cn(
+                        "p-3 rounded-lg border-2 transition flex flex-col items-center gap-1",
+                        formData.sport === sport.id
+                          ? "border-fuchsia-500 bg-fuchsia-500/10"
+                          : "border-border bg-background hover:border-muted-foreground"
+                      )}
+                    >
+                      <Icon className={cn("h-5 w-5", sport.color)} />
+                      <span className="text-xs">{sport.name}</span>
+                      {sport.supportsPower && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">
+                          PWR
+                        </Badge>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Basic Info Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="col-span-2 space-y-2">
-                <Label>Nome</Label>
+                <Label>Nome Allenamento</Label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="es. Soglia 4x8'"
+                  className="bg-background"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Sport</Label>
-                <Select value={formData.sport} onValueChange={(v) => setFormData({ ...formData, sport: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border">
-                    {SPORTS.filter((s) => s.id !== "all").map((sport) => (
-                      <SelectItem key={sport.id} value={sport.id} className="hover:bg-muted">
-                        <div className="flex items-center gap-2">
-                          <sport.icon className={cn("h-4 w-4", sport.color)} />
-                          {sport.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Tipo Allenamento</Label>
+                <Label>Tipo</Label>
                 <Select
                   value={formData.workout_type}
                   onValueChange={(v) => setFormData({ ...formData, workout_type: v })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background border border-border">
@@ -710,30 +726,12 @@ export function WorkoutLibrary({
               </div>
 
               <div className="space-y-2">
-                <Label>Durata (min)</Label>
-                <Input
-                  type="number"
-                  value={formData.duration_minutes}
-                  onChange={(e) => setFormData({ ...formData, duration_minutes: Number.parseInt(e.target.value) || 0 })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>TSS Stimato</Label>
-                <Input
-                  type="number"
-                  value={formData.tss_estimate}
-                  onChange={(e) => setFormData({ ...formData, tss_estimate: Number.parseInt(e.target.value) || 0 })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Zona Primaria</Label>
+                <Label>Zona Target</Label>
                 <Select
                   value={formData.primary_zone}
                   onValueChange={(v) => setFormData({ ...formData, primary_zone: v })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background border border-border">
@@ -748,23 +746,84 @@ export function WorkoutLibrary({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              <div className="col-span-2 space-y-2">
-                <Label>Descrizione</Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descrizione dell'allenamento..."
-                  rows={3}
-                />
+            {/* Live Preview Block Chart */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Anteprima Struttura</Label>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{formData.duration_minutes || 0} min</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Zap className="h-4 w-4 text-orange-500" />
+                    <span className="font-medium text-orange-500">{formData.tss_estimate || 0} TSS</span>
+                  </span>
+                </div>
+              </div>
+              
+              {/* Visual Block Chart */}
+              <div className="h-20 flex gap-0.5 rounded-lg overflow-hidden bg-muted/50 border border-border">
+                {formData.intervals && formData.intervals.length > 0 ? (
+                  formData.intervals.map((block, idx) => {
+                    const zoneHeightMap: Record<string, string> = {
+                      Z1: "h-4", Z2: "h-6", Z3: "h-8", Z4: "h-10", Z5: "h-12", Z6: "h-14", Z7: "h-16", Z8: "h-20"
+                    }
+                    const durationMin = block.durationUnit === "sec" ? block.duration / 60 : block.duration
+                    const totalDuration = formData.intervals!.reduce((sum, b) => 
+                      sum + (b.durationUnit === "sec" ? b.duration / 60 : b.duration), 0)
+                    const widthPercent = totalDuration > 0 ? (durationMin / totalDuration) * 100 : 0
+                    
+                    return (
+                      <div
+                        key={block.id || idx}
+                        className="flex items-end justify-center relative group cursor-pointer"
+                        style={{ width: `${Math.max(widthPercent, 5)}%`, minWidth: '20px' }}
+                        title={`${block.name}: ${block.duration}${block.durationUnit} @ ${block.zone} (${block.intensity}%)`}
+                      >
+                        <div 
+                          className={cn(
+                            "w-full rounded-t transition-all flex items-center justify-center",
+                            zoneHeightMap[block.zone] || "h-6",
+                            ZONE_COLORS[block.zone] || "bg-green-500"
+                          )}
+                        >
+                          <span className="text-[10px] text-white font-bold">{block.zone}</span>
+                        </div>
+                        {/* Hover tooltip */}
+                        <div className="absolute bottom-full mb-1 hidden group-hover:block bg-popover text-popover-foreground text-xs p-2 rounded shadow-lg whitespace-nowrap z-10">
+                          <p className="font-medium">{block.name}</p>
+                          <p>{block.duration}{block.durationUnit} @ {block.intensity}% FTP</p>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="w-full flex items-end justify-center">
+                    <div className={cn(
+                      "w-full rounded-t h-8",
+                      ZONE_COLORS[formData.primary_zone] || "bg-green-500"
+                    )}>
+                      <div className="h-full flex items-center justify-center text-white text-sm font-medium">
+                        {formData.primary_zone || "Z2"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                <span>0 min</span>
+                <span>{formData.duration_minutes || 60} min</span>
               </div>
             </div>
 
-            {/* Interval Blocks */}
+            {/* Interval Blocks Builder */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Blocchi Intervallo</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addIntervalBlock}>
+                <Label className="text-sm font-medium">Blocchi Allenamento</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addIntervalBlock} className="bg-transparent">
                   <Plus className="h-4 w-4 mr-1" />
                   Aggiungi Blocco
                 </Button>
@@ -772,106 +831,170 @@ export function WorkoutLibrary({
 
               {formData.intervals && formData.intervals.length > 0 && (
                 <div className="space-y-2">
-                  {formData.intervals.map((block) => (
-                    <div key={block.id} className="p-3 border rounded-lg bg-muted/30 space-y-2">
-                      <div className="flex items-center justify-between">
+                  {formData.intervals.map((block, blockIdx) => (
+                    <div key={block.id} className={cn(
+                      "p-3 rounded-lg border-l-4 bg-background",
+                      ZONE_COLORS[block.zone]?.replace('bg-', 'border-') || "border-green-500"
+                    )}>
+                      <div className="flex items-center gap-3">
+                        {/* Zone indicator */}
+                        <div className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold",
+                          ZONE_COLORS[block.zone] || "bg-green-500"
+                        )}>
+                          {block.zone}
+                        </div>
+                        
+                        {/* Block name */}
                         <Input
                           value={block.name}
                           onChange={(e) => updateIntervalBlock(block.id, { name: e.target.value })}
-                          className="w-32 h-8"
+                          className="w-32 h-9 bg-muted/50"
                           placeholder="Nome"
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeIntervalBlock(block.id)}
-                          className="text-red-400 h-8"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Durata</Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              value={block.duration}
-                              onChange={(e) =>
-                                updateIntervalBlock(block.id, { duration: Number.parseInt(e.target.value) || 0 })
-                              }
-                              className="h-8"
-                            />
-                            <Select
-                              value={block.durationUnit}
-                              onValueChange={(v) => updateIntervalBlock(block.id, { durationUnit: v as "min" | "sec" })}
-                            >
-                              <SelectTrigger className="w-16 h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="min">min</SelectItem>
-                                <SelectItem value="sec">sec</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Zona</Label>
-                          <Select value={block.zone} onValueChange={(v) => updateIntervalBlock(block.id, { zone: v })}>
-                            <SelectTrigger className="h-8">
+                        
+                        {/* Duration */}
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={block.duration}
+                            onChange={(e) => updateIntervalBlock(block.id, { duration: Number.parseInt(e.target.value) || 0 })}
+                            className="w-16 h-9 bg-muted/50"
+                          />
+                          <Select
+                            value={block.durationUnit}
+                            onValueChange={(v) => updateIntervalBlock(block.id, { durationUnit: v as "min" | "sec" })}
+                          >
+                            <SelectTrigger className="w-16 h-9 bg-muted/50">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
-                              {ZONES.map((z) => (
-                                <SelectItem key={z} value={z}>
-                                  {z}
-                                </SelectItem>
-                              ))}
+                            <SelectContent className="bg-background border border-border">
+                              <SelectItem value="min">min</SelectItem>
+                              <SelectItem value="sec">sec</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Serie</Label>
-                          <Input
-                            type="number"
-                            value={block.numIntervals || 1}
-                            onChange={(e) =>
-                              updateIntervalBlock(block.id, { numIntervals: Number.parseInt(e.target.value) || 1 })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Rec (sec)</Label>
-                          <Input
-                            type="number"
-                            value={block.restBetweenIntervals || 0}
-                            onChange={(e) =>
-                              updateIntervalBlock(block.id, {
-                                restBetweenIntervals: Number.parseInt(e.target.value) || 0,
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">%FTP</Label>
+                        
+                        {/* Zone selector */}
+                        <Select value={block.zone} onValueChange={(v) => updateIntervalBlock(block.id, { zone: v })}>
+                          <SelectTrigger className="w-20 h-9 bg-muted/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border border-border">
+                            {ZONES.map((z) => (
+                              <SelectItem key={z} value={z}>
+                                <div className="flex items-center gap-2">
+                                  <div className={cn("h-3 w-3 rounded-full", ZONE_COLORS[z])} />
+                                  {z}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        {/* Intensity */}
+                        <div className="flex items-center gap-1">
                           <Input
                             type="number"
                             value={block.intensity}
-                            onChange={(e) =>
-                              updateIntervalBlock(block.id, { intensity: Number.parseInt(e.target.value) || 0 })
-                            }
-                            className="h-8"
+                            onChange={(e) => updateIntervalBlock(block.id, { intensity: Number.parseInt(e.target.value) || 0 })}
+                            className="w-16 h-9 bg-muted/50"
                           />
+                          <span className="text-xs text-muted-foreground">%FTP</span>
+                        </div>
+                        
+                        {/* Delete */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeIntervalBlock(block.id)}
+                          className="text-red-400 h-9 w-9 bg-transparent"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {/* Optional series/recovery */}
+                      <div className="flex items-center gap-4 mt-2 ml-13 text-sm">
+                        <div className="flex items-center gap-1">
+                          <Label className="text-xs text-muted-foreground">Serie:</Label>
+                          <Input
+                            type="number"
+                            value={block.numIntervals || 1}
+                            onChange={(e) => updateIntervalBlock(block.id, { numIntervals: Number.parseInt(e.target.value) || 1 })}
+                            className="w-12 h-7 bg-muted/50 text-xs"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Label className="text-xs text-muted-foreground">Rec:</Label>
+                          <Input
+                            type="number"
+                            value={block.restBetweenIntervals || 0}
+                            onChange={(e) => updateIntervalBlock(block.id, { restBetweenIntervals: Number.parseInt(e.target.value) || 0 })}
+                            className="w-12 h-7 bg-muted/50 text-xs"
+                          />
+                          <span className="text-xs text-muted-foreground">sec</span>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Duration, TSS, IF Row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  Durata Totale (min)
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.duration_minutes}
+                  onChange={(e) => setFormData({ ...formData, duration_minutes: Number.parseInt(e.target.value) || 0 })}
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  <Zap className="h-3.5 w-3.5 text-orange-500" />
+                  TSS Stimato
+                </Label>
+                <Input
+                  type="number"
+                  value={formData.tss_estimate}
+                  onChange={(e) => setFormData({ ...formData, tss_estimate: Number.parseInt(e.target.value) || 0 })}
+                  className="bg-background"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  <Activity className="h-3.5 w-3.5 text-fuchsia-500" />
+                  IF Stimato
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.if_estimate || 0}
+                  onChange={(e) => setFormData({ ...formData, if_estimate: Number.parseFloat(e.target.value) || 0 })}
+                  className="bg-background"
+                  placeholder="0.85"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>Descrizione / Note</Label>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Descrivi l'allenamento, obiettivi, sensazioni target..."
+                rows={3}
+                className="bg-background"
+              />
             </div>
 
             {/* Tags */}
@@ -889,6 +1012,7 @@ export function WorkoutLibrary({
                   })
                 }
                 placeholder="es. indoor, salita, FTP test"
+                className="bg-background"
               />
             </div>
           </div>
