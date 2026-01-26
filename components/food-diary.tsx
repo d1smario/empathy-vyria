@@ -111,19 +111,18 @@ export function FoodDiary({ athleteData }: FoodDiaryProps) {
     loadEntries()
   }, [selectedDate, athleteData?.id])
   
-  const loadEntries = async () => {
-    if (!athleteData?.id) return
-    setLoading(true)
-    
-    try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
-      const { data, error } = await supabase
-        .from("food_logs")
-        .select("*")
-        .eq("athlete_id", athleteData.id)
-        .gte("logged_at", `${dateStr}T00:00:00`)
-        .lte("logged_at", `${dateStr}T23:59:59`)
-        .order("logged_at", { ascending: true })
+const loadEntries = async () => {
+  if (!athleteData?.id) return
+  setLoading(true)
+  
+  try {
+  const dateStr = format(selectedDate, "yyyy-MM-dd")
+  const { data, error } = await supabase
+  .from("food_logs")
+  .select("*")
+  .eq("athlete_id", athleteData.id)
+.eq("meal_date", dateStr)
+  .order("logged_at", { ascending: true })
       
       if (error) throw error
       setEntries(data || [])
@@ -164,21 +163,21 @@ export function FoodDiary({ athleteData }: FoodDiaryProps) {
     setSaving(true)
     
     try {
-      const entryData = {
-        athlete_id: athleteData.id,
-        name: newEntry.name,
-        meal_type: selectedMealType,
-        logged_at: new Date().toISOString(),
-        calories: newEntry.calories,
-        protein: newEntry.protein,
-        carbs: newEntry.carbs,
-        fats: newEntry.fats,
-        fiber: newEntry.fiber,
-        sugar: newEntry.sugar,
-        glycemic_index: newEntry.glycemic_index,
-        notes: newEntry.notes,
-        image_url: newEntry.image_url,
-      }
+const entryData = {
+  athlete_id: athleteData.id,
+  meal_name: newEntry.name,
+  meal_type: selectedMealType,
+  meal_date: format(selectedDate, 'yyyy-MM-dd'),
+  logged_at: new Date().toISOString(),
+  calories: newEntry.calories,
+  protein: newEntry.protein,
+  carbs: newEntry.carbs,
+  fats: newEntry.fats,
+  fiber: newEntry.fiber,
+  glycemic_index: newEntry.glycemic_index,
+  notes: newEntry.notes,
+  image_url: newEntry.image_url,
+  }
       
       const { error } = await supabase.from("food_logs").insert(entryData)
       if (error) throw error
@@ -388,7 +387,7 @@ export function FoodDiary({ athleteData }: FoodDiaryProps) {
                     {entry.image_url ? (
                       <img 
                         src={entry.image_url || "/placeholder.svg"} 
-                        alt={entry.name}
+                        alt={entry.meal_name}
                         className="w-12 h-12 rounded-lg object-cover"
                       />
                     ) : (
@@ -397,7 +396,7 @@ export function FoodDiary({ athleteData }: FoodDiaryProps) {
                       </div>
                     )}
                     <div>
-                      <div className="font-medium text-white">{entry.name}</div>
+                      <div className="font-medium text-white">{entry.meal_name}</div>
                       <div className="text-xs text-zinc-400">
                         P: {entry.protein}g | C: {entry.carbs}g | F: {entry.fats}g
                       </div>
