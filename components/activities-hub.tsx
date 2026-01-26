@@ -46,6 +46,8 @@ import { ActivityStatistics } from "@/components/activity-statistics"
 import { analyzeReadiness, type BiometricsInput } from "@/lib/readiness-engine"
 import type { AthleteDataType } from "@/components/dashboard-content"
 import { MiniActivityChart } from "@/components/mini-activity-chart" // Added import for MiniActivityChart
+import { calculatePMC } from "@/lib/calculatePMC"
+import { Flame } from "lucide-react"
 
 // Types
 interface DailyBiometrics {
@@ -322,14 +324,10 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
     setSelectedDate(new Date())
   }
 
-  // Day click handler
+  // Day click handler - opens modal for both month and week views
   const handleDayClick = (day: DayData) => {
     setSelectedDate(day.date)
-    if (view === 'month') {
-      setView('day')
-    } else {
-      setShowDayDetail(true)
-    }
+    setShowDayDetail(true)
   }
 
   // Activity actions
@@ -958,6 +956,242 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
               }
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Day Detail Modal - Opens when clicking a day in month/week view */}
+      <Dialog open={showDayDetail} onOpenChange={setShowDayDetail}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+          {(() => {
+            const day = daysData.find(d => selectedDate && isSameDay(d.date, selectedDate))
+            if (!day) return null
+            
+            // Calculate PMC for performance analysis
+            const pmcActivities = activities.map(a => ({
+              date: a.activity_date,
+              tss: a.tss || 0,
+              duration: a.duration_minutes || 0
+            }))
+            const pmc = calculatePMC(pmcActivities, 42)
+            
+            // Get FTP for power calculations
+            const ftp = athleteData?.metabolic_profiles?.[0]?.ftp || 250
+            
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-fuchsia-500" />
+                      {format(day.date, "EEEE d MMMM yyyy", { locale: it })}
+                    </div>
+                    {day.biometrics?.readiness_score && (
+                      <Badge variant="outline" className={cn("text-sm", getReadinessColor(day.biometrics.readiness_score))}>
+                        Readiness: {day.biometrics.readiness_score}
+                      </Badge>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {/* Activities for this day */}
+                  {day.activities.length > 0 ? (
+                    day.activities.map((activity, idx) => {
+                      const SportIcon = getSportIcon(activity.activity_type)
+                      const duration = activity.duration_minutes || activity.actual_duration_min || 0
+                      const tss = activity.tss || 0
+                      const avgPower = activity.average_power || activity.avg_power || Math.round(ftp * 0.75)
+                      const kcal = activity.calories || Math.round(avgPower * duration / 60 * 3.6 / 0.25)
+                      const blocks = activity.intervals?.blocks || []
+                      
+                      return (
+                        <Card key={idx} className="border-l-4 border-l-fuchsia-500">
+                          <CardContent className="p-4 space-y-4">
+                            {/* Header with sport icon and title */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={cn("p-2 rounded-lg", 
+                                  activity.completed ? "bg-green-500/20" : "bg-muted"
+                                )}>
+                                  <SportIcon className={cn("h-6 w-6", getSportColor(activity.activity_type))} />
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold">{activity.title || "Allenamento"}</h3>
+                                  <p className="text-sm text-muted-foreground">{activity.workout_type || activity.activity_type}</p>
+                                </div>
+                              </div>
+                              <SourceBadge source={activity.source} />
+                            </div>
+                            
+                            {/* Stats Grid - TrainingPeaks style */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                                <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-1">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  <span>Durata</span>
+                                </div>
+                                <span className="font-bold text-lg">{formatDuration(duration)}</span>
+                              </div>
+                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                                <div className="flex items-center justify-center gap-1 text-orange-500 text-xs mb-1">
+                                  <Zap className="h-3.5 w-3.5" />
+                                  <span>TSS</span>
+                                </div>
+                                <span className="font-bold text-lg text-orange-500">{tss}</span>
+                              </div>
+                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                                <div className="flex items-center justify-center gap-1 text-fuchsia-500 text-xs mb-1">
+                                  <Activity className="h-3.5 w-3.5" />
+                                  <span>Avg Power</span>
+                                </div>
+                                <span className="font-bold text-lg text-fuchsia-500">{avgPower}W</span>
+                              </div>
+                              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                                <div className="flex items-center justify-center gap-1 text-red-500 text-xs mb-1">
+                                  <Flame className="h-3.5 w-3.5" />
+                                  <span>kcal</span>
+                                </div>
+                                <span className="font-bold text-lg text-red-500">{kcal}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Block Chart */}
+                            {blocks.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">Struttura Allenamento</div>
+                                <div className="h-12 flex gap-0.5 rounded overflow-hidden bg-muted/30">
+                                  {blocks.map((block: any, bIdx: number) => {
+                                    const zoneHeights: Record<string, string> = {
+                                      Z1: "h-3", Z2: "h-4", Z3: "h-6", Z4: "h-8", Z5: "h-10", Z6: "h-11", Z7: "h-12"
+                                    }
+                                    const blockDur = block.duration || 5
+                                    const totalDur = blocks.reduce((s: number, b: any) => s + (b.duration || 5), 0)
+                                    const widthPct = (blockDur / totalDur) * 100
+                                    
+                                    return (
+                                      <div
+                                        key={bIdx}
+                                        className="flex items-end justify-center"
+                                        style={{ width: `${Math.max(widthPct, 3)}%`, minWidth: '8px' }}
+                                        title={`${block.name || block.type}: ${blockDur}min @ ${block.zone}`}
+                                      >
+                                        <div className={cn(
+                                          "w-full rounded-t flex items-center justify-center",
+                                          zoneHeights[block.zone] || "h-4",
+                                          getZoneColor(block.zone)
+                                        )}>
+                                          <span className="text-[8px] text-white font-bold">{block.zone}</span>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                                <div className="flex justify-between text-[10px] text-muted-foreground">
+                                  <span>0 min</span>
+                                  <span>{duration} min</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Description */}
+                            {activity.description && (
+                              <p className="text-sm text-muted-foreground">{activity.description}</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )
+                    })
+                  ) : (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <Moon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">Giorno di riposo</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {/* Performance Analysis Card */}
+                  <Card className="bg-gradient-to-br from-fuchsia-500/10 to-cyan-500/10 border-fuchsia-500/30">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4 text-fuchsia-500" />
+                        Performance Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center">
+                          <div className="text-xs text-muted-foreground mb-1">CTL (Fitness)</div>
+                          <div className="text-2xl font-bold text-cyan-500">{Math.round(pmc.currentCTL)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-muted-foreground mb-1">ATL (Fatigue)</div>
+                          <div className="text-2xl font-bold text-orange-500">{Math.round(pmc.currentATL)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-muted-foreground mb-1">TSB (Form)</div>
+                          <div className={cn(
+                            "text-2xl font-bold",
+                            pmc.currentTSB >= 0 ? "text-green-500" : "text-red-500"
+                          )}>
+                            {pmc.currentTSB >= 0 ? "+" : ""}{Math.round(pmc.currentTSB)}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-muted-foreground mb-1">Ramp Rate</div>
+                          <div className={cn(
+                            "text-2xl font-bold",
+                            pmc.rampRate > 8 ? "text-red-500" : pmc.rampRate > 5 ? "text-yellow-500" : "text-green-500"
+                          )}>
+                            {pmc.rampRate >= 0 ? "+" : ""}{pmc.rampRate}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* TSB Interpretation */}
+                      <div className="mt-3 p-2 bg-background/50 rounded text-xs text-center">
+                        {pmc.currentTSB < -30 ? (
+                          <span className="text-red-500">Alto rischio overtraining - considera riposo</span>
+                        ) : pmc.currentTSB < -10 ? (
+                          <span className="text-orange-500">Fase di carico - buono per adattamento</span>
+                        ) : pmc.currentTSB < 10 ? (
+                          <span className="text-green-500">Forma ottimale - pronto per prestazione</span>
+                        ) : pmc.currentTSB < 25 ? (
+                          <span className="text-cyan-500">Ben riposato - ideale per gare</span>
+                        ) : (
+                          <span className="text-yellow-500">Possibile detraining - considera aumento carico</span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  {/* Day Total TSS */}
+                  {day.tssTotal > 0 && (
+                    <div className="flex items-center justify-center gap-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                      <Zap className="h-5 w-5 text-amber-500" />
+                      <span className="font-medium">TSS Totale Giornata:</span>
+                      <span className="text-xl font-bold text-amber-500">{Math.round(day.tssTotal)}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowDayDetail(false)} className="bg-transparent">
+                    Chiudi
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setShowDayDetail(false)
+                      setView('day')
+                    }}
+                    className="bg-fuchsia-600 hover:bg-fuchsia-700"
+                  >
+                    Vedi Dettaglio Completo
+                  </Button>
+                </DialogFooter>
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
