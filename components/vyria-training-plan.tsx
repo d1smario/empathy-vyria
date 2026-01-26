@@ -42,6 +42,8 @@ import {
   ChevronUp,
   ChevronDown,
   Clock,
+  Flame,
+  TrendingUp,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { AnnualPlanGenerator } from "./annual-plan-generator"
@@ -107,6 +109,7 @@ interface WorkoutBlock {
 interface TrainingSession {
   sessionId: string
   dayIndex: number // Changed from day to dayIndex
+  activityDate?: string // YYYY-MM-DD format
   sport: string
   workoutType: string
   title: string
@@ -115,6 +118,8 @@ interface TrainingSession {
   targetZone: string
   blocks: WorkoutBlock[]
   tss?: number
+  avgPower?: number
+  kcal?: number
   gymExercises?: Array<{
     name: string
     sets: number
@@ -151,6 +156,59 @@ const SPORTS = [
   ]
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+
+// TSS Calculation - Formula: TSS = (seconds × IF²) / 3600 × 100
+// IF values per zone based on typical power zones
+const ZONE_IF: Record<string, number> = {
+  Z1: 0.55,  // Recovery
+  Z2: 0.70,  // Endurance
+  Z3: 0.85,  // Tempo
+  Z4: 0.95,  // Threshold
+  Z5: 1.05,  // VO2max
+  Z6: 1.20,  // Anaerobic
+  Z7: 1.50,  // Neuromuscular
+}
+
+// Calculate TSS for a single block
+const calculateBlockTSS = (durationMin: number, zone: string): number => {
+  const IF = ZONE_IF[zone] || 0.70
+  // TSS = (duration_seconds * IF²) / 3600 * 100
+  return (durationMin * 60 * IF * IF) / 3600 * 100
+}
+
+// Calculate total TSS for all blocks
+const calculateTotalTSS = (blocks: any[], calculateBlockDurationFn: (b: any) => number): number => {
+  return blocks.reduce((sum, block) => {
+    const duration = calculateBlockDurationFn(block)
+    return sum + calculateBlockTSS(duration, block.zone)
+  }, 0)
+}
+
+// Calculate kcal based on average power and duration
+// Formula: kcal = (avg_power_watts * duration_hours * 3.6) / efficiency
+// Assuming ~25% efficiency for cycling
+const calculateKcal = (avgPowerWatts: number, durationMin: number): number => {
+  const durationHours = durationMin / 60
+  const efficiency = 0.25
+  return Math.round((avgPowerWatts * durationHours * 3.6) / efficiency)
+}
+
+// Estimate average power based on FTP and zones
+const estimateAvgPower = (blocks: any[], ftp: number, calculateBlockDurationFn: (b: any) => number): number => {
+  const totalDuration = blocks.reduce((sum, b) => sum + calculateBlockDurationFn(b), 0)
+  if (totalDuration === 0) return 0
+  
+  const weightedPower = blocks.reduce((sum, block) => {
+    const duration = calculateBlockDurationFn(block)
+    const zonePercent: Record<string, number> = {
+      Z1: 0.55, Z2: 0.70, Z3: 0.85, Z4: 0.95, Z5: 1.05, Z6: 1.20, Z7: 1.50
+    }
+    const powerForZone = ftp * (zonePercent[block.zone] || 0.70)
+    return sum + (powerForZone * duration)
+  }, 0)
+  
+  return Math.round(weightedPower / totalDuration)
+}
 
 const ZONE_COLORS: Record<string, string> = {
   Z1: "bg-slate-500",
@@ -225,6 +283,7 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
   // Weekly Plan State
   const [generatedPlan, setGeneratedPlan] = useState<TrainingSession[]>([])
   const [selectedDay, setSelectedDay] = useState(0)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   // Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -549,11 +608,19 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
         .lte("activity_date", sunday.toISOString().split("T")[0])
 
       const workoutsToInsert = generatedPlan.map((session) => {
-        const activityDate = new Date(monday)
-        activityDate.setDate(monday.getDate() + session.dayIndex) // Use dayIndex here
+        // Use activityDate if available, otherwise calculate from dayIndex
+        let activityDateStr: string
+        if (session.activityDate) {
+          activityDateStr = session.activityDate
+        } else {
+          const activityDate = new Date(monday)
+          activityDate.setDate(monday.getDate() + session.dayIndex)
+          activityDateStr = activityDate.toISOString().split("T")[0]
+        }
+        
         return {
           athlete_id: athleteData.id,
-          activity_date: activityDate.toISOString().split("T")[0],
+          activity_date: activityDateStr,
           activity_type: session.sport,
           workout_type: session.workoutType,
           title: session.title,
@@ -561,6 +628,8 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
           duration_minutes: session.duration,
           targetZone: session.targetZone,
           tss: session.tss || Math.round(session.duration * 0.8),
+          average_power: session.avgPower,
+          calories: session.kcal,
           intervals: { blocks: session.blocks },
           gym_exercises: session.gymExercises,
           planned: true,
@@ -750,9 +819,15 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
     const totalDuration = getTotalDuration()
     const mainZone = editorBlocks.find((b) => b.type !== "warmup" && b.type !== "cooldown")?.zone || "Z2"
 
+    // Calculate metrics
+    const calculatedTSS = Math.round(calculateTotalTSS(editorBlocks, calculateBlockDuration))
+    const avgPower = estimateAvgPower(editorBlocks, ftpWatts, calculateBlockDuration)
+    const kcal = calculateKcal(avgPower, totalDuration)
+    
     const newSession: TrainingSession = {
       sessionId: generateId(),
       dayIndex: selectedDay,
+      activityDate: selectedDate.toISOString().split('T')[0], // YYYY-MM-DD format
       sport: editorSport,
       workoutType: editorBlocks.some((b) => b.type === "intervals")
         ? "intervals"
@@ -762,7 +837,9 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
       duration: totalDuration,
       targetZone: mainZone,
       blocks: editorBlocks,
-      tss: Math.round(totalDuration * (mainZone === "Z5" ? 1.2 : mainZone === "Z4" ? 1.0 : 0.7)),
+      tss: calculatedTSS,
+      avgPower: avgPower,
+      kcal: kcal,
       completed: false,
     }
     setGeneratedPlan((prev) => [...prev, newSession])
@@ -893,11 +970,34 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <Zap className="h-5 w-5 text-fuchsia-500" />
-              Crea Allenamento - {DAY_NAMES[selectedDay]}
+              Crea Allenamento
             </CardTitle>
             <Button variant="ghost" size="icon" onClick={resetEditor}>
               <X className="h-4 w-4" />
             </Button>
+          </div>
+          
+          {/* Date Picker */}
+          <div className="mt-3 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <CalendarRange className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs">Data:</Label>
+              <input
+                type="date"
+                value={selectedDate.toISOString().split('T')[0]}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value)
+                  setSelectedDate(newDate)
+                  // Update day of week
+                  const dayOfWeek = newDate.getDay()
+                  setSelectedDay(dayOfWeek === 0 ? 6 : dayOfWeek - 1)
+                }}
+                className="bg-background border border-border rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {DAY_NAMES[selectedDay]} {selectedDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Badge>
           </div>
         </CardHeader>
         <div className="max-h-[500px] overflow-y-auto px-6">
@@ -970,25 +1070,58 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
             </div>
 
             {/* Live Visual Block Chart Preview */}
-            <div className="space-y-2 p-3 bg-background rounded-lg border border-border">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium">Anteprima Struttura</Label>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <span className="font-bold">{getTotalDuration()} min</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Zap className="h-3 w-3 text-orange-500" />
-                    <span className="font-bold text-orange-500">
-                      {Math.round(editorBlocks.reduce((sum, b) => {
-                        const dur = calculateBlockDuration(b)
-                        const zoneIF: Record<string, number> = { Z1: 0.5, Z2: 0.65, Z3: 0.8, Z4: 0.95, Z5: 1.05, Z6: 1.15, Z7: 1.25 }
-                        return sum + (dur * (zoneIF[b.zone] || 0.7) ** 2)
-                      }, 0))} TSS
-                    </span>
+            <div className="space-y-3 p-4 bg-background rounded-lg border border-border">
+              {/* Stats Row - Style like statistics cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="bg-muted/30 rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px] mb-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Durata</span>
+                  </div>
+                  <span className="font-bold text-sm">{getTotalDuration()} min</span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-orange-500 text-[10px] mb-1">
+                    <Zap className="h-3 w-3" />
+                    <span>TSS</span>
+                  </div>
+                  <span className="font-bold text-sm text-orange-500">
+                    {Math.round(calculateTotalTSS(editorBlocks, calculateBlockDuration))}
                   </span>
                 </div>
+                <div className="bg-muted/30 rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-fuchsia-500 text-[10px] mb-1">
+                    <Activity className="h-3 w-3" />
+                    <span>Avg Power</span>
+                  </div>
+                  <span className="font-bold text-sm text-fuchsia-500">
+                    {estimateAvgPower(editorBlocks, ftpWatts, calculateBlockDuration)}W
+                  </span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-red-500 text-[10px] mb-1">
+                    <Flame className="h-3 w-3" />
+                    <span>kcal</span>
+                  </div>
+                  <span className="font-bold text-sm text-red-500">
+                    {calculateKcal(estimateAvgPower(editorBlocks, ftpWatts, calculateBlockDuration), getTotalDuration())}
+                  </span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-cyan-500 text-[10px] mb-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>IF</span>
+                  </div>
+                  <span className="font-bold text-sm text-cyan-500">
+                    {editorBlocks.length > 0 
+                      ? (Math.sqrt(calculateTotalTSS(editorBlocks, calculateBlockDuration) * 3600 / (getTotalDuration() * 60 * 100))).toFixed(2)
+                      : "0.00"}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Grafico Struttura</Label>
               </div>
               
               {/* Visual Block Chart */}
