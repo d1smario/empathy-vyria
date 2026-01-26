@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pill, Activity, Flame, Clock, Package, Sparkles, ShoppingCart, Download, FileText, AlertTriangle } from "lucide-react"
+import { Pill, Activity, Flame, Clock, Package, Sparkles, ShoppingCart, Download, FileText, AlertTriangle, RefreshCw } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { AIAnalysisButton } from "@/components/ai-analysis-button"
 import { SUPPLEMENTS_DATABASE, getProductsByBrand, getCompatibleProducts, type SupplementProduct } from "@/lib/data/supplements-database"
@@ -2636,7 +2636,7 @@ if (annualPlan?.config_json?.training_preferences) {
     })
   }
 
-  // EMPATHY meal selection: rotazione + adattamento al tipo di giornata
+  // EMPATHY meal selection: rotazione + adattamento al tipo di giornata + 2 alternative
   const selectMealWithRotation = (meals: typeof MEAL_DATABASE.colazione, mealType: string, targetKcal: number, dayIndex: number, workoutType: string) => {
     // Prioritize meals based on workout type
     let filteredMeals = [...meals]
@@ -2669,7 +2669,24 @@ if (annualPlan?.config_json?.training_preferences) {
     // Apply rotation offset based on day + mealType for variety
     const mealTypeOffset = mealType.charCodeAt(0) % 5
     const rotationIndex = (dayIndex + mealTypeOffset) % filteredMeals.length
-    return filteredMeals[rotationIndex]
+    const selectedMeal = filteredMeals[rotationIndex]
+    
+    // Get 2 alternatives (different from selected, spread across the list)
+    const alternatives: typeof selectedMeal[] = []
+    if (filteredMeals.length > 1) {
+      const alt1Index = (rotationIndex + Math.ceil(filteredMeals.length / 3)) % filteredMeals.length
+      if (alt1Index !== rotationIndex) {
+        alternatives.push(filteredMeals[alt1Index])
+      }
+    }
+    if (filteredMeals.length > 2) {
+      const alt2Index = (rotationIndex + Math.ceil(filteredMeals.length * 2 / 3)) % filteredMeals.length
+      if (alt2Index !== rotationIndex && !alternatives.includes(filteredMeals[alt2Index])) {
+        alternatives.push(filteredMeals[alt2Index])
+      }
+    }
+    
+    return { selected: selectedMeal, alternatives }
   }
 
   // Generate plan for each day of the week
@@ -2709,7 +2726,7 @@ if (annualPlan?.config_json?.training_preferences) {
         mealDistributionConfig[meal.type] = { pct: meal.kcalPct, macro: meal.macroRatio }
       })
 
-      // Define dayPlan with ingredients
+      // Define dayPlan with ingredients and alternatives
       const dayPlan: {
         meal: string
         name: string
@@ -2719,6 +2736,7 @@ if (annualPlan?.config_json?.training_preferences) {
         fat: number
         time: string
         ingredients: { name: string; grams: number }[]
+        alternatives?: { name: string; kcal: number; cho: number; pro: number; fat: number; ingredients: { name: string; grams: number }[] }[]
       }[] = []
 
       Object.entries(mealDistributionConfig).forEach(([mealType, config]) => {
@@ -2727,13 +2745,29 @@ if (annualPlan?.config_json?.training_preferences) {
 
   if (filteredMeals.length > 0) {
   const targetKcal = dayDailyKcal * config.pct
-  const selectedMeal = selectMealWithRotation(filteredMeals, mealType, targetKcal, dayIndex, workoutType)
+  const { selected: selectedMeal, alternatives } = selectMealWithRotation(filteredMeals, mealType, targetKcal, dayIndex, workoutType)
   const scale = targetKcal / selectedMeal.kcal
 
           const scaledIngredients = selectedMeal.ingredients.map((ing) => ({
             name: ing.name,
             grams: Math.round(ing.grams * scale),
           }))
+          
+          // Scale alternatives too
+          const scaledAlternatives = alternatives.map(alt => {
+            const altScale = targetKcal / alt.kcal
+            return {
+              name: alt.name,
+              kcal: Math.round(alt.kcal * altScale),
+              cho: Math.round(alt.cho * altScale),
+              pro: Math.round(alt.pro * altScale),
+              fat: Math.round(alt.fat * altScale),
+              ingredients: alt.ingredients.map(ing => ({
+                name: ing.name,
+                grams: Math.round(ing.grams * altScale),
+              }))
+            }
+          })
 
           dayPlan.push({
             meal: mealLabels[mealType] || mealType,
@@ -2744,6 +2778,7 @@ if (annualPlan?.config_json?.training_preferences) {
             fat: Math.round(selectedMeal.fat * scale),
             time: mealTimes[mealType] || "12:00",
             ingredients: scaledIngredients,
+            alternatives: scaledAlternatives.length > 0 ? scaledAlternatives : undefined,
           })
         }
       })
@@ -3714,6 +3749,39 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
     })()}
   </div>
   </div>
+  
+  {/* Alternative Meal Options */}
+  {meal.alternatives && meal.alternatives.length > 0 && (
+    <div className="mt-4 pt-4 border-t border-border/50">
+      <div className="flex items-center gap-2 mb-3">
+        <RefreshCw className="h-4 w-4 text-blue-400" />
+        <strong className="text-blue-400 text-sm">Alternative a scelta:</strong>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {meal.alternatives.map((alt: any, altIdx: number) => (
+          <div key={altIdx} className="bg-background/50 border border-border/50 rounded-lg p-3 hover:border-blue-500/50 transition-colors cursor-pointer">
+            <div className="flex justify-between items-start mb-2">
+              <span className="font-medium text-sm">{alt.name}</span>
+              <Badge variant="outline" className="text-xs">{alt.kcal} kcal</Badge>
+            </div>
+            <div className="flex gap-2 mb-2 text-xs">
+              <span className="text-amber-400">C: {alt.cho}g</span>
+              <span className="text-red-400">P: {alt.pro}g</span>
+              <span className="text-blue-400">F: {alt.fat}g</span>
+            </div>
+            <ul className="text-xs text-muted-foreground space-y-0.5">
+              {alt.ingredients.slice(0, 4).map((ing: any, ingIdx: number) => (
+                <li key={ingIdx}>{ing.name}: {ing.grams}g</li>
+              ))}
+              {alt.ingredients.length > 4 && (
+                <li className="text-muted-foreground/60">+{alt.ingredients.length - 4} altri...</li>
+              )}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
                         </CardContent>
                       </Card>
                     ))
