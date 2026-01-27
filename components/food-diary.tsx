@@ -83,7 +83,8 @@ export function FoodDiary({ athleteData }: FoodDiaryProps) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedMealType, setSelectedMealType] = useState<string>("colazione")
   const [saving, setSaving] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false) // Declare uploadingImage variable
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [analyzingImage, setAnalyzingImage] = useState(false)
   
   // New entry form state
   const [newEntry, setNewEntry] = useState({
@@ -651,16 +652,48 @@ const entryData = {
                       accept="image/*"
                       capture="environment"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
                         
                         setUploadingImage(true)
-                        // Convert to base64 - works without storage configuration
+                        // Convert to base64
                         const reader = new FileReader()
-                        reader.onload = (ev) => {
-                          setNewEntry({ ...newEntry, image_url: ev.target?.result as string })
+                        reader.onload = async (ev) => {
+                          const base64Image = ev.target?.result as string
+                          setNewEntry(prev => ({ ...prev, image_url: base64Image }))
                           setUploadingImage(false)
+                          
+                          // Analyze with AI
+                          setAnalyzingImage(true)
+                          try {
+                            const res = await fetch('/api/analyze-food', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ imageBase64: base64Image })
+                            })
+                            
+                            if (res.ok) {
+                              const { analysis } = await res.json()
+                              if (analysis) {
+                                setNewEntry(prev => ({
+                                  ...prev,
+                                  name: analysis.name || prev.name,
+                                  calories: analysis.calories || prev.calories,
+                                  protein: analysis.protein || prev.protein,
+                                  carbs: analysis.carbs || prev.carbs,
+                                  fats: analysis.fats || prev.fats,
+                                  fiber: analysis.fiber || prev.fiber,
+                                  sugar: analysis.sugar || prev.sugar,
+                                  glycemic_index: analysis.glycemic_index || prev.glycemic_index,
+                                }))
+                              }
+                            }
+                          } catch (err) {
+                            console.error('AI analysis error:', err)
+                          } finally {
+                            setAnalyzingImage(false)
+                          }
                         }
                         reader.onerror = () => {
                           setUploadingImage(false)
@@ -674,6 +707,12 @@ const entryData = {
                   <div className="flex items-center gap-2 text-zinc-400 text-sm">
                     <div className="animate-spin h-4 w-4 border-2 border-fuchsia-500 border-t-transparent rounded-full" />
                     Caricamento...
+                  </div>
+                )}
+                {analyzingImage && (
+                  <div className="flex items-center gap-2 text-fuchsia-400 text-sm">
+                    <div className="animate-spin h-4 w-4 border-2 border-fuchsia-500 border-t-transparent rounded-full" />
+                    Analisi AI in corso...
                   </div>
                 )}
               </div>
