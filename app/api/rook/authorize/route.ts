@@ -55,24 +55,38 @@ export async function GET(request: NextRequest) {
     // Generate Rook user ID based on our user ID
     const rookUserId = `empathy_${user.id.replace(/-/g, '')}`
     
+    console.log('[Rook] Authorizing provider:', provider, 'for user:', rookUserId)
+    console.log('[Rook] Environment vars check:', {
+      hasClientUuid: !!process.env.ROOK_CLIENT_UUID,
+      hasSecretKey: !!process.env.ROOK_SECRET_KEY,
+      environment: process.env.ROOK_ENVIRONMENT,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL
+    })
+    
     // Register user in Rook if not already registered
     try {
-      await rookClient.registerUser(rookUserId)
+      const registerResult = await rookClient.registerUser(rookUserId)
+      console.log('[Rook] User registered:', registerResult)
     } catch (error: unknown) {
       // User might already exist, continue
       const errorMessage = error instanceof Error ? error.message : String(error)
-      if (!errorMessage.includes('already exists')) {
+      console.log('[Rook] Register user result:', errorMessage)
+      if (!errorMessage.includes('already exists') && !errorMessage.includes('409')) {
         console.error('[Rook] Error registering user:', error)
       }
     }
     
     // Get authorization URL
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/rook/callback`
+    console.log('[Rook] Redirect URL:', redirectUrl)
+    
     const authResponse = await rookClient.getAuthorizationUrl(
       rookUserId,
       provider,
       redirectUrl
     )
+    
+    console.log('[Rook] Auth response:', JSON.stringify(authResponse, null, 2))
     
     // Store connection attempt in database
     await supabaseAdmin

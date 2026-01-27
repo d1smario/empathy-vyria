@@ -165,13 +165,18 @@ export function DeviceIntegrations({ athleteId, userId }: DeviceIntegrationsProp
       }
 
       const data = await response.json()
+      console.log('[v0] Rook authorize response:', data)
       
       // Redirect to provider OAuth
       if (data.authorization_url) {
+        console.log('[v0] Redirecting to:', data.authorization_url)
         window.location.href = data.authorization_url
+      } else {
+        console.error('[v0] No authorization_url in response:', data)
+        throw new Error(data.error || 'No authorization URL received')
       }
     } catch (err) {
-      console.error('Error connecting:', err)
+      console.error('[v0] Error connecting:', err)
       setError(`Errore nella connessione a ${provider.name}`)
     } finally {
       setActionLoading(null)
