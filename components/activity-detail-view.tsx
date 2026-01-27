@@ -152,7 +152,8 @@ export function ActivityDetailView({ activity, onClose, athleteFTP = 250 }: Acti
       intensityFactor: Math.round(intensityFactor * 100) / 100,
       variabilityIndex: avgPower > 0 ? Math.round(np / avgPower * 100) / 100 : 1,
       work,
-      calories: activity.calories || Math.round(work * 0.24)
+      // kcal = (work kJ / efficiency 25%) / 4.184
+      calories: activity.calories || Math.round((work / 0.25) / 4.184)
     }
   }, [dataPoints, activity, athleteFTP])
 
