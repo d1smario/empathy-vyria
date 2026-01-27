@@ -60,12 +60,12 @@ export default function ConnectionsPage() {
 
       // Load connections status
       const { data: connections } = await supabase
-        .from("rook_user_connections")
+        .from("user_data_connections")
         .select("*")
         .eq("user_id", user.id)
 
       if (connections) {
-        const active = connections.filter(c => c.is_authorized)
+        const active = connections.filter(c => c.authorized)
         const lastSyncDate = connections
           .filter(c => c.last_sync_at)
           .sort((a, b) => new Date(b.last_sync_at!).getTime() - new Date(a.last_sync_at!).getTime())[0]?.last_sync_at
