@@ -667,30 +667,35 @@ const entryData = {
                           // Analyze with AI
                           setAnalyzingImage(true)
                           try {
+                            console.log('[v0] Starting AI food analysis...')
                             const res = await fetch('/api/analyze-food', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ imageBase64: base64Image })
                             })
                             
-                            if (res.ok) {
-                              const { analysis } = await res.json()
-                              if (analysis) {
-                                setNewEntry(prev => ({
-                                  ...prev,
-                                  name: analysis.name || prev.name,
-                                  calories: analysis.calories || prev.calories,
-                                  protein: analysis.protein || prev.protein,
-                                  carbs: analysis.carbs || prev.carbs,
-                                  fats: analysis.fats || prev.fats,
-                                  fiber: analysis.fiber || prev.fiber,
-                                  sugar: analysis.sugar || prev.sugar,
-                                  glycemic_index: analysis.glycemic_index || prev.glycemic_index,
-                                }))
-                              }
+                            console.log('[v0] AI response status:', res.status)
+                            const data = await res.json()
+                            console.log('[v0] AI response data:', data)
+                            
+                            if (data.analysis) {
+                              console.log('[v0] Setting form values from AI:', data.analysis)
+                              setNewEntry(prev => ({
+                                ...prev,
+                                name: data.analysis.name || prev.name,
+                                calories: data.analysis.calories || prev.calories,
+                                protein: data.analysis.protein || prev.protein,
+                                carbs: data.analysis.carbs || prev.carbs,
+                                fats: data.analysis.fats || prev.fats,
+                                fiber: data.analysis.fiber || prev.fiber,
+                                sugar: data.analysis.sugar || prev.sugar,
+                                glycemic_index: data.analysis.glycemic_index || prev.glycemic_index,
+                              }))
+                            } else if (data.error) {
+                              console.error('[v0] AI error:', data.error, data.details)
                             }
                           } catch (err) {
-                            console.error('AI analysis error:', err)
+                            console.error('[v0] AI analysis error:', err)
                           } finally {
                             setAnalyzingImage(false)
                           }
