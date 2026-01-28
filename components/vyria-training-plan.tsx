@@ -1803,6 +1803,7 @@ return (
             selectedDay={selectedDay}
             onDayChange={setSelectedDay}
             dayNames={DAY_NAMES}
+            athleteId={athleteData?.id}
           />
         </TabsContent>
         {/* TAB: BIBLIOTECA */}
