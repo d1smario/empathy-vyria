@@ -627,12 +627,13 @@ return {
   duration_minutes: session.duration,
   target_zone: session.targetZone,
   tss: session.tss || Math.round(session.duration * 0.8),
-  average_power: session.avgPower,
-  calories: session.kcal,
-  intervals: { blocks: session.blocks },
-  gym_exercises: session.gymExercises,
+  average_power: session.avgPower || null,
+  calories: session.kcal || null,
+  intervals: session.gymExercises 
+    ? { blocks: session.blocks, gymExercises: session.gymExercises }
+    : { blocks: session.blocks },
   planned: true,
-  completed: session.completed,
+  completed: session.completed || false,
   source: "vyria_generated",
   }
       })
