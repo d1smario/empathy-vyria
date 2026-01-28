@@ -10,9 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import { Dumbbell, Plus, Clock, Flame, X, RotateCcw, Save, Calendar, FileDown, Info, Loader2, Sparkles, Zap } from "lucide-react"
+import { Dumbbell, Plus, Clock, Flame, X, RotateCcw, Save, Calendar, FileDown, Info, Loader2, Sparkles, Zap, CalendarPlus, Check } from "lucide-react"
 import Image from "next/image"
 import { EXERCISE_DATABASE, type Exercise as LocalExercise } from "@/lib/exercise-database"
+import { createClient } from "@/lib/supabase/client"
+import { format, addDays, startOfWeek } from "date-fns"
+import { it } from "date-fns/locale"
 
 // Gruppi muscolari - nomi ESATTI dall'API ExerciseDB
 const MUSCLE_GROUPS = [
@@ -87,9 +90,13 @@ export default function GymExerciseLibrary({
   const [aiDuration, setAiDuration] = useState<number>(60)
   const [aiMuscleGroups, setAiMuscleGroups] = useState<string[]>(["petto", "tricipiti"])
   const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiSelectedDate, setAiSelectedDate] = useState<Date>(new Date())
+  const [aiSaving, setAiSaving] = useState(false)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  const supabase = createClient()
 
 // Mapping gruppi muscolari per database locale
   const MUSCLE_GROUP_MAP: Record<string, string[]> = {
@@ -135,8 +142,13 @@ export default function GymExerciseLibrary({
     setLoading(false)
   }, [])
   
-  // Generate workout with AI
+  // Generate workout with AI and save to calendar
   const generateAIWorkout = async () => {
+    if (!athleteId) {
+      alert("Errore: Nessun atleta selezionato")
+      return
+    }
+    
     setAiGenerating(true)
     try {
       const response = await fetch("/api/ai/gym-workout", {
@@ -172,8 +184,48 @@ export default function GymExerciseLibrary({
         setSelectedExercises(aiExercises)
         setWorkoutName(data.workout.name)
         setWorkoutNotes(data.workout.description)
-        setShowAIGenerator(false)
-        alert(`Scheda "${data.workout.name}" generata con ${aiExercises.length} esercizi!`)
+        
+        // Save to calendar (training_activities)
+        setAiSaving(true)
+        const activityData = {
+          athlete_id: athleteId,
+          activity_date: format(aiSelectedDate, 'yyyy-MM-dd'),
+          activity_type: 'strength',
+          title: data.workout.name,
+          description: data.workout.description,
+          duration_minutes: aiDuration,
+          planned: true,
+          completed: false,
+          source: 'ai_generated',
+          intervals: {
+            type: 'gym',
+            goal: aiGoal,
+            level: aiLevel,
+            exercises: aiExercises.map(ex => ({
+              name: ex.name,
+              sets: ex.sets,
+              reps: ex.reps,
+              rest: ex.restSeconds,
+              equipment: ex.equipment,
+              notes: ex.notes,
+            })),
+            warmup: data.workout.warmup,
+            cooldown: data.workout.cooldown,
+          },
+        }
+        
+        const { error: insertError } = await supabase
+          .from('training_activities')
+          .insert(activityData)
+        
+        if (insertError) {
+          console.error("Save error:", insertError)
+          alert(`Scheda generata ma errore nel salvataggio: ${insertError.message}`)
+        } else {
+          setShowAIGenerator(false)
+          alert(`Scheda "${data.workout.name}" salvata nel calendario per ${format(aiSelectedDate, 'EEEE d MMMM', { locale: it })}!`)
+        }
+        setAiSaving(false)
       } else {
         alert("Errore nella generazione: " + (data.error || "Riprova"))
       }
@@ -182,6 +234,7 @@ export default function GymExerciseLibrary({
       alert("Errore nella generazione della scheda")
     } finally {
       setAiGenerating(false)
+      setAiSaving(false)
     }
   }
 
@@ -807,6 +860,41 @@ export default function GymExerciseLibrary({
                 ))}
               </div>
             </div>
+            
+            {/* Data per il Calendario */}
+            <div>
+              <Label className="flex items-center gap-2">
+                <CalendarPlus className="h-4 w-4 text-fuchsia-500" />
+                Data nel Calendario
+              </Label>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {Array.from({ length: 7 }, (_, i) => {
+                  const date = addDays(new Date(), i)
+                  const isSelected = format(aiSelectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                  return (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={isSelected ? "default" : "outline"}
+                      className={`flex flex-col py-2 h-auto ${isSelected ? "bg-fuchsia-500 hover:bg-fuchsia-600" : ""}`}
+                      onClick={() => setAiSelectedDate(date)}
+                    >
+                      <span className="text-xs">{format(date, 'EEE', { locale: it })}</span>
+                      <span className="text-lg font-bold">{format(date, 'd')}</span>
+                    </Button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Selezionato: {format(aiSelectedDate, 'EEEE d MMMM yyyy', { locale: it })}
+              </p>
+            </div>
+            
+            {!athleteId && (
+              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-md">
+                <p className="text-sm text-red-400">Attenzione: Nessun atleta selezionato. La scheda non potra essere salvata.</p>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
@@ -815,18 +903,18 @@ export default function GymExerciseLibrary({
             </Button>
             <Button 
               onClick={generateAIWorkout}
-              disabled={aiGenerating || aiMuscleGroups.length === 0}
+              disabled={aiGenerating || aiSaving || aiMuscleGroups.length === 0 || !athleteId}
               className="bg-gradient-to-r from-fuchsia-500 to-purple-600"
             >
-              {aiGenerating ? (
+              {aiGenerating || aiSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generazione...
+                  {aiGenerating ? "Generazione..." : "Salvataggio..."}
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Genera Scheda
+                  <Check className="h-4 w-4 mr-2" />
+                  Genera e Salva in Calendario
                 </>
               )}
             </Button>
