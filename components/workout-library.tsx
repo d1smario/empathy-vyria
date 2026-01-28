@@ -306,17 +306,58 @@ export function WorkoutLibrary({
     }
   }
 
-  // Insert workout into training
+  // Insert workout into calendar (training_activities)
   const insertIntoTraining = async () => {
-    if (!selectedWorkoutToInsert || !onAssignToDay) return
+    if (!selectedWorkoutToInsert || !athleteId) {
+      alert("Seleziona un allenamento e assicurati che l'atleta sia configurato")
+      return
+    }
 
     try {
-      // Call the parent callback to insert workout
-      await onAssignToDay(selectedDayIndex, selectedWorkoutToInsert)
+      // Calculate the date based on selected day of week
+      const today = new Date()
+      const dayOfWeek = today.getDay()
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      const monday = new Date(today)
+      monday.setDate(today.getDate() + mondayOffset)
+      
+      const activityDate = new Date(monday)
+      activityDate.setDate(monday.getDate() + selectedDayIndex)
+      const activityDateStr = activityDate.toISOString().split("T")[0]
 
-      alert(`Allenamento inserito in ${DAY_NAMES[selectedDayIndex]}!`)
+      // Prepare workout data for training_activities
+      const workoutData = {
+        athlete_id: athleteId,
+        activity_date: activityDateStr,
+        activity_type: selectedWorkoutToInsert.sport,
+        workout_type: selectedWorkoutToInsert.workout_type,
+        title: selectedWorkoutToInsert.name,
+        description: selectedWorkoutToInsert.description || "",
+        duration_minutes: selectedWorkoutToInsert.duration_minutes,
+        target_zone: selectedWorkoutToInsert.primary_zone,
+        tss: selectedWorkoutToInsert.tss_estimate,
+        intervals: { blocks: selectedWorkoutToInsert.intervals || [] },
+        planned: true,
+        completed: false,
+        source: "workout_library",
+      }
+
+      const { error } = await supabase.from("training_activities").insert(workoutData)
+
+      if (error) {
+        console.error("Error inserting workout:", error)
+        alert(`Errore: ${error.message}`)
+        return
+      }
+
+      alert(`Allenamento "${selectedWorkoutToInsert.name}" inserito nel calendario per ${DAY_NAMES[selectedDayIndex]}!`)
       setShowInsertDialog(false)
       setSelectedWorkoutToInsert(null)
+      
+      // Call callback if provided to refresh parent
+      if (onAssignToDay) {
+        await onAssignToDay(selectedDayIndex, selectedWorkoutToInsert)
+      }
     } catch (error) {
       console.error("Error inserting into training:", error)
       alert("Errore nell'inserimento dell'allenamento")
@@ -527,7 +568,7 @@ export function WorkoutLibrary({
                   const SportIcon = getSportIcon(workout.sport)
 
                   return (
-                    <Card key={workout.id} className="hover:shadow-md transition-shadow">
+                    <Card key={workout.id} className="hover:shadow-md transition-shadow bg-zinc-900/80 border-zinc-700">
                       <CardHeader className="pb-2">
                         <CardTitle className="flex items-center justify-between text-base">
                           <div className="flex items-center gap-2">
@@ -638,7 +679,7 @@ export function WorkoutLibrary({
                             }}
                           >
                             <Plus className="h-3 w-3 mr-1" />
-                            Usa in Training
+                            Usa in Calendario
                           </Button>
                         </div>
                       </CardContent>
@@ -1046,7 +1087,7 @@ export function WorkoutLibrary({
       <Dialog open={showInsertDialog} onOpenChange={setShowInsertDialog}>
         <DialogContent className="max-w-md bg-zinc-900 border border-zinc-700">
           <DialogHeader>
-            <DialogTitle>Inserisci in Training</DialogTitle>
+            <DialogTitle>Inserisci in Calendario</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="p-3 bg-muted rounded-md">
