@@ -95,25 +95,34 @@ export default function GymExerciseLibrary({
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentAthleteId, setCurrentAthleteId] = useState<string | null>(null)
   
   const supabase = createClient()
   
-  // Get current logged in user ID if no athleteId provided
+  // Get current logged in user's athlete_id if no athleteId provided
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const fetchCurrentAthlete = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setCurrentUserId(user.id)
+        // Look up the athlete record for this user
+        const { data: athlete } = await supabase
+          .from('athletes')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
+        
+        if (athlete) {
+          setCurrentAthleteId(athlete.id)
+        }
       }
     }
     if (!athleteId) {
-      fetchCurrentUser()
+      fetchCurrentAthlete()
     }
-  }, [athleteId, supabase.auth])
+  }, [athleteId, supabase])
   
-  // Use athleteId prop or current user ID
-  const effectiveAthleteId = athleteId || currentUserId
+  // Use athleteId prop or current athlete's ID from database
+  const effectiveAthleteId = athleteId || currentAthleteId
 
 // Mapping gruppi muscolari per database locale
   const MUSCLE_GROUP_MAP: Record<string, string[]> = {
