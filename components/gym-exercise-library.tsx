@@ -86,16 +86,24 @@ export default function GymExerciseLibrary({
   const fetchExercises = useCallback(async (bodyPart: string) => {
     setLoading(true)
     setError(null)
+    console.log("[v0] fetchExercises called with bodyPart:", bodyPart)
     try {
-      const response = await fetch(`/api/exercises?bodyPart=${encodeURIComponent(bodyPart)}&limit=50`)
+      const url = `/api/exercises?bodyPart=${encodeURIComponent(bodyPart)}&limit=50`
+      console.log("[v0] Fetching from:", url)
+      const response = await fetch(url)
+      console.log("[v0] Response status:", response.status)
       const data = await response.json()
-      if (data.exercises) {
+      console.log("[v0] Response data:", data)
+      if (data.exercises && data.exercises.length > 0) {
+        console.log("[v0] Setting exercises:", data.exercises.length)
         setExercises(data.exercises)
       } else {
+        console.log("[v0] No exercises found in response")
         setError("Nessun esercizio trovato")
         setExercises([])
       }
     } catch (err) {
+      console.error("[v0] Fetch error:", err)
       setError("Errore nel caricamento degli esercizi")
       setExercises([])
     } finally {
