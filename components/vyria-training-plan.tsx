@@ -286,7 +286,12 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
 
   // Weekly Plan State
   const [generatedPlan, setGeneratedPlan] = useState<TrainingSession[]>([])
-  const [selectedDay, setSelectedDay] = useState(0)
+  // Initialize selectedDay based on current day of week (0=Mon, 1=Tue, ..., 6=Sun)
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const today = new Date()
+    const dayOfWeek = today.getDay() // 0=Sun, 1=Mon, 2=Tue, 3=Wed, ...
+    return dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Convert to 0=Mon, ..., 6=Sun
+  })
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   // Dialog State
