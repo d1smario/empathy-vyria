@@ -308,8 +308,15 @@ export function WorkoutLibrary({
 
   // Insert workout into calendar (training_activities)
   const insertIntoTraining = async () => {
-    if (!selectedWorkoutToInsert || !athleteId) {
-      alert("Seleziona un allenamento e assicurati che l'atleta sia configurato")
+    console.log("[v0] insertIntoTraining - athleteId:", athleteId, "workout:", selectedWorkoutToInsert?.name)
+    
+    if (!selectedWorkoutToInsert) {
+      alert("Seleziona un allenamento")
+      return
+    }
+    
+    if (!athleteId) {
+      alert("Nessun atleta selezionato. Assicurati di essere nella dashboard di un atleta.")
       return
     }
 
@@ -1090,25 +1097,44 @@ export function WorkoutLibrary({
             <DialogTitle>Inserisci in Calendario</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-3 bg-muted rounded-md">
+            <div className="p-3 bg-zinc-800 rounded-md">
               <p className="font-medium">{selectedWorkoutToInsert?.name}</p>
               <p className="text-sm text-muted-foreground">
-                {selectedWorkoutToInsert?.duration_minutes} min • {selectedWorkoutToInsert?.tss_estimate} TSS
+                {selectedWorkoutToInsert?.duration_minutes} min • {selectedWorkoutToInsert?.tss_estimate} TSS • {selectedWorkoutToInsert?.sport}
               </p>
             </div>
+            
+            {!athleteId && (
+              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-md">
+                <p className="text-sm text-red-400">Attenzione: Nessun atleta selezionato. L'allenamento non potrà essere salvato.</p>
+              </div>
+            )}
+            
             <div>
-              <Label>Seleziona giorno</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {DAY_NAMES.map((dayName, index) => (
-                  <Button
-                    key={index}
-                    variant={selectedDayIndex === index ? "default" : "outline"}
-                    className="w-full"
-                    onClick={() => setSelectedDayIndex(index)}
-                  >
-                    {dayName}
-                  </Button>
-                ))}
+              <Label>Seleziona giorno della settimana corrente</Label>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {DAY_NAMES.map((dayName, index) => {
+                  // Calculate actual date for this day
+                  const today = new Date()
+                  const dayOfWeek = today.getDay()
+                  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+                  const monday = new Date(today)
+                  monday.setDate(today.getDate() + mondayOffset)
+                  const dayDate = new Date(monday)
+                  dayDate.setDate(monday.getDate() + index)
+                  
+                  return (
+                    <Button
+                      key={index}
+                      variant={selectedDayIndex === index ? "default" : "outline"}
+                      className="w-full flex flex-col py-2 h-auto"
+                      onClick={() => setSelectedDayIndex(index)}
+                    >
+                      <span className="text-xs">{dayName.slice(0, 3)}</span>
+                      <span className="text-lg font-bold">{dayDate.getDate()}</span>
+                    </Button>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -1116,7 +1142,9 @@ export function WorkoutLibrary({
             <Button variant="outline" onClick={() => setShowInsertDialog(false)}>
               Annulla
             </Button>
-            <Button onClick={insertIntoTraining}>Inserisci</Button>
+            <Button onClick={insertIntoTraining} disabled={!athleteId}>
+              Inserisci nel Calendario
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
