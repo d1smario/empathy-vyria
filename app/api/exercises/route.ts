@@ -4,6 +4,95 @@ const RAPIDAPI_KEY = process.env.RAPID_API_KEY;
 // AscendAPI "Exercise DB with Videos and Images"
 const RAPIDAPI_HOST = 'exercise-db-with-videos-and-images-by-ascendapi.p.rapidapi.com';
 
+// FALLBACK LOCAL EXERCISES - Used when API key is not available
+const LOCAL_EXERCISES: Record<string, any[]> = {
+  'chest': [
+    { id: 'chest-1', name: 'Bench Press', bodyPart: 'chest', target: 'pectorals', equipment: 'barbell' },
+    { id: 'chest-2', name: 'Incline Dumbbell Press', bodyPart: 'chest', target: 'upper pectorals', equipment: 'dumbbell' },
+    { id: 'chest-3', name: 'Chest Fly', bodyPart: 'chest', target: 'pectorals', equipment: 'dumbbell' },
+    { id: 'chest-4', name: 'Push-Up', bodyPart: 'chest', target: 'pectorals', equipment: 'body weight' },
+    { id: 'chest-5', name: 'Cable Crossover', bodyPart: 'chest', target: 'pectorals', equipment: 'cable' },
+    { id: 'chest-6', name: 'Decline Bench Press', bodyPart: 'chest', target: 'lower pectorals', equipment: 'barbell' },
+    { id: 'chest-7', name: 'Dips', bodyPart: 'chest', target: 'pectorals', equipment: 'body weight' },
+    { id: 'chest-8', name: 'Machine Chest Press', bodyPart: 'chest', target: 'pectorals', equipment: 'machine' },
+  ],
+  'back': [
+    { id: 'back-1', name: 'Lat Pulldown', bodyPart: 'back', target: 'lats', equipment: 'cable' },
+    { id: 'back-2', name: 'Barbell Row', bodyPart: 'back', target: 'lats', equipment: 'barbell' },
+    { id: 'back-3', name: 'Pull-Up', bodyPart: 'back', target: 'lats', equipment: 'body weight' },
+    { id: 'back-4', name: 'Seated Cable Row', bodyPart: 'back', target: 'middle back', equipment: 'cable' },
+    { id: 'back-5', name: 'Dumbbell Row', bodyPart: 'back', target: 'lats', equipment: 'dumbbell' },
+    { id: 'back-6', name: 'T-Bar Row', bodyPart: 'back', target: 'middle back', equipment: 'barbell' },
+    { id: 'back-7', name: 'Face Pull', bodyPart: 'back', target: 'rear delts', equipment: 'cable' },
+    { id: 'back-8', name: 'Deadlift', bodyPart: 'back', target: 'lower back', equipment: 'barbell' },
+  ],
+  'shoulders': [
+    { id: 'shoulders-1', name: 'Overhead Press', bodyPart: 'shoulders', target: 'deltoids', equipment: 'barbell' },
+    { id: 'shoulders-2', name: 'Lateral Raise', bodyPart: 'shoulders', target: 'lateral deltoid', equipment: 'dumbbell' },
+    { id: 'shoulders-3', name: 'Front Raise', bodyPart: 'shoulders', target: 'anterior deltoid', equipment: 'dumbbell' },
+    { id: 'shoulders-4', name: 'Rear Delt Fly', bodyPart: 'shoulders', target: 'posterior deltoid', equipment: 'dumbbell' },
+    { id: 'shoulders-5', name: 'Arnold Press', bodyPart: 'shoulders', target: 'deltoids', equipment: 'dumbbell' },
+    { id: 'shoulders-6', name: 'Upright Row', bodyPart: 'shoulders', target: 'deltoids', equipment: 'barbell' },
+    { id: 'shoulders-7', name: 'Shrugs', bodyPart: 'shoulders', target: 'trapezius', equipment: 'dumbbell' },
+    { id: 'shoulders-8', name: 'Machine Shoulder Press', bodyPart: 'shoulders', target: 'deltoids', equipment: 'machine' },
+  ],
+  'upper arms': [
+    { id: 'arms-1', name: 'Barbell Curl', bodyPart: 'upper arms', target: 'biceps', equipment: 'barbell' },
+    { id: 'arms-2', name: 'Tricep Pushdown', bodyPart: 'upper arms', target: 'triceps', equipment: 'cable' },
+    { id: 'arms-3', name: 'Hammer Curl', bodyPart: 'upper arms', target: 'biceps', equipment: 'dumbbell' },
+    { id: 'arms-4', name: 'Skull Crusher', bodyPart: 'upper arms', target: 'triceps', equipment: 'ez barbell' },
+    { id: 'arms-5', name: 'Preacher Curl', bodyPart: 'upper arms', target: 'biceps', equipment: 'ez barbell' },
+    { id: 'arms-6', name: 'Tricep Dips', bodyPart: 'upper arms', target: 'triceps', equipment: 'body weight' },
+    { id: 'arms-7', name: 'Concentration Curl', bodyPart: 'upper arms', target: 'biceps', equipment: 'dumbbell' },
+    { id: 'arms-8', name: 'Overhead Tricep Extension', bodyPart: 'upper arms', target: 'triceps', equipment: 'dumbbell' },
+  ],
+  'upper legs': [
+    { id: 'legs-1', name: 'Squat', bodyPart: 'upper legs', target: 'quadriceps', equipment: 'barbell' },
+    { id: 'legs-2', name: 'Leg Press', bodyPart: 'upper legs', target: 'quadriceps', equipment: 'machine' },
+    { id: 'legs-3', name: 'Romanian Deadlift', bodyPart: 'upper legs', target: 'hamstrings', equipment: 'barbell' },
+    { id: 'legs-4', name: 'Leg Curl', bodyPart: 'upper legs', target: 'hamstrings', equipment: 'machine' },
+    { id: 'legs-5', name: 'Leg Extension', bodyPart: 'upper legs', target: 'quadriceps', equipment: 'machine' },
+    { id: 'legs-6', name: 'Lunges', bodyPart: 'upper legs', target: 'quadriceps', equipment: 'dumbbell' },
+    { id: 'legs-7', name: 'Hip Thrust', bodyPart: 'upper legs', target: 'glutes', equipment: 'barbell' },
+    { id: 'legs-8', name: 'Bulgarian Split Squat', bodyPart: 'upper legs', target: 'quadriceps', equipment: 'dumbbell' },
+  ],
+  'lower legs': [
+    { id: 'calves-1', name: 'Standing Calf Raise', bodyPart: 'lower legs', target: 'calves', equipment: 'machine' },
+    { id: 'calves-2', name: 'Seated Calf Raise', bodyPart: 'lower legs', target: 'calves', equipment: 'machine' },
+    { id: 'calves-3', name: 'Donkey Calf Raise', bodyPart: 'lower legs', target: 'calves', equipment: 'body weight' },
+    { id: 'calves-4', name: 'Single Leg Calf Raise', bodyPart: 'lower legs', target: 'calves', equipment: 'body weight' },
+  ],
+  'waist': [
+    { id: 'core-1', name: 'Crunch', bodyPart: 'waist', target: 'abs', equipment: 'body weight' },
+    { id: 'core-2', name: 'Plank', bodyPart: 'waist', target: 'core', equipment: 'body weight' },
+    { id: 'core-3', name: 'Russian Twist', bodyPart: 'waist', target: 'obliques', equipment: 'body weight' },
+    { id: 'core-4', name: 'Leg Raise', bodyPart: 'waist', target: 'lower abs', equipment: 'body weight' },
+    { id: 'core-5', name: 'Cable Crunch', bodyPart: 'waist', target: 'abs', equipment: 'cable' },
+    { id: 'core-6', name: 'Ab Wheel Rollout', bodyPart: 'waist', target: 'abs', equipment: 'body weight' },
+    { id: 'core-7', name: 'Mountain Climber', bodyPart: 'waist', target: 'core', equipment: 'body weight' },
+    { id: 'core-8', name: 'Side Plank', bodyPart: 'waist', target: 'obliques', equipment: 'body weight' },
+  ],
+  'lower arms': [
+    { id: 'forearm-1', name: 'Wrist Curl', bodyPart: 'lower arms', target: 'forearms', equipment: 'dumbbell' },
+    { id: 'forearm-2', name: 'Reverse Wrist Curl', bodyPart: 'lower arms', target: 'forearms', equipment: 'dumbbell' },
+    { id: 'forearm-3', name: 'Farmer Walk', bodyPart: 'lower arms', target: 'forearms', equipment: 'dumbbell' },
+    { id: 'forearm-4', name: 'Plate Pinch', bodyPart: 'lower arms', target: 'forearms', equipment: 'barbell' },
+  ],
+  'cardio': [
+    { id: 'cardio-1', name: 'Jumping Jacks', bodyPart: 'cardio', target: 'cardio', equipment: 'body weight' },
+    { id: 'cardio-2', name: 'Burpees', bodyPart: 'cardio', target: 'full body', equipment: 'body weight' },
+    { id: 'cardio-3', name: 'High Knees', bodyPart: 'cardio', target: 'cardio', equipment: 'body weight' },
+    { id: 'cardio-4', name: 'Box Jump', bodyPart: 'cardio', target: 'cardio', equipment: 'body weight' },
+    { id: 'cardio-5', name: 'Jump Rope', bodyPart: 'cardio', target: 'cardio', equipment: 'body weight' },
+    { id: 'cardio-6', name: 'Battle Ropes', bodyPart: 'cardio', target: 'full body', equipment: 'cable' },
+  ],
+  'neck': [
+    { id: 'neck-1', name: 'Neck Curl', bodyPart: 'neck', target: 'neck', equipment: 'body weight' },
+    { id: 'neck-2', name: 'Neck Extension', bodyPart: 'neck', target: 'neck', equipment: 'body weight' },
+    { id: 'neck-3', name: 'Neck Side Bend', bodyPart: 'neck', target: 'neck', equipment: 'body weight' },
+  ],
+};
+
 // Cache per evitare chiamate ripetute
 const exerciseCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 1000 * 60 * 60; // 1 ora
@@ -68,7 +157,40 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
     const limit = searchParams.get('limit') || '30';
 
-    console.log('[v0] Exercise API request:', { bodyPart, search, limit });
+    console.log('[v0] Exercise API request:', { bodyPart, search, limit, hasApiKey: !!RAPIDAPI_KEY });
+
+    // USE LOCAL FALLBACK if no API key
+    if (!RAPIDAPI_KEY) {
+      console.log('[v0] No RAPID_API_KEY, using local exercises');
+      
+      let exercises: any[] = [];
+      
+      if (search) {
+        // Search across all local exercises
+        const searchLower = search.toLowerCase();
+        for (const [_, exList] of Object.entries(LOCAL_EXERCISES)) {
+          exercises.push(...exList.filter(ex => 
+            ex.name.toLowerCase().includes(searchLower) ||
+            ex.target.toLowerCase().includes(searchLower) ||
+            ex.equipment.toLowerCase().includes(searchLower)
+          ));
+        }
+      } else if (bodyPart) {
+        exercises = LOCAL_EXERCISES[bodyPart.toLowerCase()] || [];
+      } else {
+        // Return all exercises
+        for (const [_, exList] of Object.entries(LOCAL_EXERCISES)) {
+          exercises.push(...exList);
+        }
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        exercises: exercises.slice(0, parseInt(limit)),
+        total: exercises.length,
+        source: 'local'
+      });
+    }
 
     // Cerca per nome usando endpoint search
     if (search) {
