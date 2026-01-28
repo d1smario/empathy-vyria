@@ -207,38 +207,45 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
     }
   }, [view, currentDate, selectedDate])
 
-  // Fetch activities
+// Fetch activities
   const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Get athlete_id for the user
-      const { data: athleteRecord } = await supabase
-        .from('athletes')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      
-      const athleteId = athleteRecord?.id
-
-      // Fetch activities from training_activities using athlete_id
-      const { data: trainingData } = await supabase
-        .from('training_activities')
-        .select('*')
-        .eq('athlete_id', athleteId)
-        .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
-        .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
-        .order('activity_date', { ascending: true })
-
-      // Fetch imported activities using user_id (imported_activities has user_id)
-      const { data: importedData } = await supabase
-        .from('imported_activities')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
-        .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
+  setLoading(true)
+  try {
+  // Use athleteData.id if available (passed from parent), otherwise get from current user
+  let athleteId = athleteData?.id
+  let userId = athleteData?.user_id
+  
+  if (!athleteId) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  
+  // Get athlete_id for the user
+  const { data: athleteRecord } = await supabase
+    .from('athletes')
+    .select('id, user_id')
+    .eq('user_id', user.id)
+    .single()
+  
+  athleteId = athleteRecord?.id
+  userId = athleteRecord?.user_id || user.id
+  }
+  
+  // Fetch activities from training_activities using athlete_id
+  const { data: trainingData } = await supabase
+  .from('training_activities')
+  .select('*')
+  .eq('athlete_id', athleteId)
+  .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
+  .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
+  .order('activity_date', { ascending: true })
+  
+  // Fetch imported activities using user_id (imported_activities has user_id)
+  const { data: importedData } = await supabase
+  .from('imported_activities')
+  .select('*')
+  .eq('user_id', userId)
+  .gte('activity_date', format(dateRange.start, 'yyyy-MM-dd'))
+  .lte('activity_date', format(dateRange.end, 'yyyy-MM-dd'))
 
       // Merge and transform
       const merged: any[] = [
@@ -289,7 +296,7 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
     } finally {
       setLoading(false)
     }
-  }, [dateRange, supabase])
+  }, [dateRange, supabase, athleteData?.id, athleteData?.user_id])
 
   useEffect(() => {
     fetchData()
