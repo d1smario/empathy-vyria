@@ -13,11 +13,9 @@ import {
   Calculator,
   Dna,
   FileText,
-  BarChart3,
   RefreshCw,
-  Zap,
-  Flower2, // Import Flower2
-  Smartphone, // Import Smartphone
+  Flower2,
+  Smartphone,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { AthleteProfile } from "@/components/athlete-profile"
@@ -29,10 +27,6 @@ import { MicrobiomeEpigenetic } from "@/components/microbiome-epigenetic"
 import { BioMapReport } from "@/components/biomap-report"
 import { IntegrationsPanel } from "@/components/integrations-panel"
 import LifestyleSection from "@/components/lifestyle-section"
-import ActivityDashboard from "@/components/activity-dashboard" // Import ActivityDashboard
-import WeeklyTraining from "@/components/weekly-training" // Import WeeklyTraining
-import DailyTrainingReport from "@/components/daily-training-report" // Import DailyTrainingReport
-import PowerZonesEditor from "@/components/power-zones-editor" // Import PowerZonesEditor
 import type { AthleteDataType, WorkoutType } from "@/components/dashboard-content"
 
 interface AthleteDetailViewProps {
