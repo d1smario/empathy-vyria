@@ -96,30 +96,43 @@ export default function GymExerciseLibrary({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentAthleteId, setCurrentAthleteId] = useState<string | null>(null)
-  
-  const supabase = createClient()
-  
-  // Get current logged in user's athlete_id if no athleteId provided
+  const [isLoadingAthlete, setIsLoadingAthlete] = useState(true)
+  const supabase = createClient() // Declare supabase variable here
+
+  // Get current logged in user's athlete_id on mount
   useEffect(() => {
     const fetchCurrentAthlete = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        // Look up the athlete record for this user
-        const { data: athlete } = await supabase
-          .from('athletes')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        console.log("[v0] Current auth user:", user?.id)
         
-        if (athlete) {
-          setCurrentAthleteId(athlete.id)
+        if (user) {
+          const { data: athlete, error } = await supabase
+            .from('athletes')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+          
+          console.log("[v0] Athlete lookup result:", athlete, error)
+          
+          if (athlete) {
+            setCurrentAthleteId(athlete.id)
+          }
         }
+      } catch (e) {
+        console.error("[v0] Error fetching athlete:", e)
+      } finally {
+        setIsLoadingAthlete(false)
       }
     }
+    
     if (!athleteId) {
       fetchCurrentAthlete()
+    } else {
+      setCurrentAthleteId(athleteId)
+      setIsLoadingAthlete(false)
     }
-  }, [athleteId, supabase])
+  }, [athleteId])
   
   // Use athleteId prop or current athlete's ID from database
   const effectiveAthleteId = athleteId || currentAthleteId
@@ -248,7 +261,8 @@ export default function GymExerciseLibrary({
         
         console.log("[v0] Saving to training_activities:", activityData)
         
-        const { data: insertData, error: insertError } = await supabase
+        const supabaseClient = createClient()
+        const { data: insertData, error: insertError } = await supabaseClient
           .from('training_activities')
           .insert(activityData)
           .select()
