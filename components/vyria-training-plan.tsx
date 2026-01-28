@@ -44,6 +44,7 @@ import {
   Clock,
   Flame,
   TrendingUp,
+  Pencil,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { AnnualPlanGenerator } from "./annual-plan-generator"
@@ -605,11 +606,15 @@ function VyriaTrainingPlan({ athleteData, userName, onUpdate }: VyriaTrainingPla
   }
 
 const saveWeekToTraining = async () => {
-  if (!athleteData?.id || generatedPlan.length === 0) return
+  if (!athleteData?.id || generatedPlan.length === 0) {
+    console.log("[v0] saveWeekToTraining: no athlete or no plan", athleteData?.id, generatedPlan.length)
+    return
+  }
   
   setSaving(true)
   try {
   const { monday } = getWeekDateRange()
+  console.log("[v0] saveWeekToTraining: monday =", monday, "plan count =", generatedPlan.length)
   
   const workoutsToInsert = generatedPlan.map((session) => {
         // Use activityDate if available, otherwise calculate from dayIndex
@@ -642,13 +647,23 @@ return {
   source: "vyria_generated",
   }
       })
-      const { error } = await supabase.from("training_activities").insert(workoutsToInsert)
-      if (error) throw error
+      
+      console.log("[v0] Inserting workouts:", workoutsToInsert)
+      const { data, error } = await supabase.from("training_activities").insert(workoutsToInsert).select()
+      
+      if (error) {
+        console.error("[v0] saveWeekToTraining error:", error.message, error.details, error.hint)
+        alert(`Errore: ${error.message}`)
+        throw error
+      }
+      
+      console.log("[v0] Workouts saved:", data)
       alert("Piano settimanale salvato!")
+      setGeneratedPlan([]) // Clear the list after saving
       onUpdate?.()
-    } catch (err) {
-      console.error("Error saving week:", err)
-      alert("Errore nel salvataggio")
+    } catch (err: any) {
+      console.error("[v0] Error saving week:", err)
+      alert(`Errore nel salvataggio: ${err?.message || err}`)
     } finally {
       setSaving(false)
     }
@@ -1721,6 +1736,22 @@ const saveEditorWorkout = async () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{session.tss || 0} TSS</Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedDay(session.dayIndex)
+                              setEditorSport(session.sport)
+                              setEditorTitle(session.title)
+                              setEditorNotes(session.description)
+                              setEditorBlocks(session.blocks || [])
+                              setShowInlineEditor(true)
+                            }}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Modifica
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
