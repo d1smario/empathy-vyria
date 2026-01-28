@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,20 +11,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dumbbell, Plus, Clock, Flame, X, RotateCcw, Save, Calendar, FileDown, Info, Loader2 } from "lucide-react"
 import Image from "next/image"
+import { EXERCISE_DATABASE, type Exercise as LocalExercise } from "@/lib/exercise-database"
 
-// Gruppi muscolari - nomi ESATTI dall'API ExerciseDB (AscendAPI)
-// bodyPart validi: back, cardio, chest, lower arms, lower legs, neck, shoulders, upper arms, upper legs, waist
+// Gruppi muscolari con mapping al database locale
 const MUSCLE_GROUPS = [
-  { id: "chest", name: "Chest", color: "#ef4444" },
-  { id: "back", name: "Back", color: "#3b82f6" },
-  { id: "shoulders", name: "Shoulders", color: "#f97316" },
-  { id: "upper arms", name: "Upper Arms", color: "#22c55e" },
-  { id: "upper legs", name: "Upper Legs", color: "#06b6d4" },
-  { id: "waist", name: "Waist / Core", color: "#eab308" },
-  { id: "lower legs", name: "Lower Legs", color: "#8b5cf6" },
-  { id: "lower arms", name: "Lower Arms", color: "#ec4899" },
-  { id: "cardio", name: "Cardio", color: "#14b8a6" },
-  { id: "neck", name: "Neck", color: "#6366f1" },
+  { id: "chest", name: "Chest", color: "#ef4444", dbGroups: ["chest"] },
+  { id: "back", name: "Back", color: "#3b82f6", dbGroups: ["back"] },
+  { id: "shoulders", name: "Shoulders", color: "#f97316", dbGroups: ["shoulders"] },
+  { id: "upper arms", name: "Upper Arms", color: "#22c55e", dbGroups: ["biceps", "triceps"] },
+  { id: "upper legs", name: "Upper Legs", color: "#06b6d4", dbGroups: ["legs", "glutes"] },
+  { id: "waist", name: "Waist / Core", color: "#eab308", dbGroups: ["core"] },
+  { id: "lower legs", name: "Lower Legs", color: "#8b5cf6", dbGroups: ["calves"] },
+  { id: "lower arms", name: "Lower Arms", color: "#ec4899", dbGroups: ["forearms"] },
+  { id: "cardio", name: "Cardio", color: "#14b8a6", dbGroups: ["cardio"] },
+  { id: "neck", name: "Neck", color: "#6366f1", dbGroups: ["neck"] },
 ]
 
 interface Exercise {
@@ -82,59 +82,69 @@ export default function GymExerciseLibrary({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch exercises from API
-  const fetchExercises = useCallback(async (bodyPart: string) => {
+  // Convert local exercise to component format
+  const convertLocalExercise = useCallback((ex: LocalExercise): Exercise => ({
+    id: ex.id,
+    name: ex.name,
+    nameIt: ex.name,
+    bodyPart: ex.muscleGroup,
+    target: ex.musclesActivated.primary[0] || ex.muscleGroup,
+    secondaryMuscles: ex.musclesActivated.secondary,
+    equipment: ex.equipment,
+    gifUrl: ex.image,
+    imageUrl: ex.image,
+    instructions: ex.instructions,
+  }), [])
+
+  // Fetch exercises from LOCAL DATABASE
+  const fetchExercises = useCallback((bodyPart: string) => {
     setLoading(true)
     setError(null)
-    console.log("[v0] fetchExercises called with bodyPart:", bodyPart)
-    try {
-      const url = `/api/exercises?bodyPart=${encodeURIComponent(bodyPart)}&limit=50`
-      console.log("[v0] Fetching from:", url)
-      const response = await fetch(url)
-      console.log("[v0] Response status:", response.status)
-      const data = await response.json()
-      console.log("[v0] Response data:", data)
-      if (data.exercises && data.exercises.length > 0) {
-        console.log("[v0] Setting exercises:", data.exercises.length)
-        setExercises(data.exercises)
-      } else {
-        console.log("[v0] No exercises found in response")
-        setError("Nessun esercizio trovato")
-        setExercises([])
-      }
-    } catch (err) {
-      console.error("[v0] Fetch error:", err)
-      setError("Errore nel caricamento degli esercizi")
+    
+    // Find the muscle group mapping
+    const group = MUSCLE_GROUPS.find(g => g.id === bodyPart)
+    const dbGroups = group?.dbGroups || [bodyPart]
+    
+    // Filter exercises from local database
+    const filtered = EXERCISE_DATABASE.filter(ex => 
+      dbGroups.includes(ex.muscleGroup)
+    ).map(convertLocalExercise)
+    
+    if (filtered.length > 0) {
+      setExercises(filtered)
+    } else {
+      setError("Nessun esercizio trovato")
       setExercises([])
-    } finally {
-      setLoading(false)
     }
-  }, [])
+    setLoading(false)
+  }, [convertLocalExercise])
 
-  // Search exercises
-  const searchExercises = useCallback(async (query: string) => {
+  // Search exercises in LOCAL DATABASE
+  const searchExercises = useCallback((query: string) => {
     if (!query.trim()) {
       fetchExercises(selectedGroup)
       return
     }
     setLoading(true)
     setError(null)
-    try {
-      const response = await fetch(`/api/exercises?search=${encodeURIComponent(query)}&limit=50`)
-      const data = await response.json()
-      if (data.exercises) {
-        setExercises(data.exercises)
-      } else {
-        setError("Nessun esercizio trovato")
-        setExercises([])
-      }
-    } catch (err) {
-      setError("Errore nella ricerca")
+    
+    const searchLower = query.toLowerCase()
+    const filtered = EXERCISE_DATABASE.filter(ex =>
+      ex.name.toLowerCase().includes(searchLower) ||
+      ex.nameEn.toLowerCase().includes(searchLower) ||
+      ex.muscleGroup.toLowerCase().includes(searchLower) ||
+      ex.equipment.toLowerCase().includes(searchLower) ||
+      ex.musclesActivated.primary.some(m => m.toLowerCase().includes(searchLower))
+    ).map(convertLocalExercise)
+    
+    if (filtered.length > 0) {
+      setExercises(filtered)
+    } else {
+      setError("Nessun esercizio trovato")
       setExercises([])
-    } finally {
-      setLoading(false)
     }
-  }, [selectedGroup, fetchExercises])
+    setLoading(false)
+  }, [selectedGroup, fetchExercises, convertLocalExercise])
 
   // Load exercises when muscle group changes
   useEffect(() => {
