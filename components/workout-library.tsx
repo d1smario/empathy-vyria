@@ -653,7 +653,7 @@ export function WorkoutLibrary({
 
       {/* Create/Edit Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-zinc-700">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-fuchsia-500" />
@@ -1044,7 +1044,7 @@ export function WorkoutLibrary({
       </Dialog>
 
       <Dialog open={showInsertDialog} onOpenChange={setShowInsertDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-zinc-900 border border-zinc-700">
           <DialogHeader>
             <DialogTitle>Inserisci in Training</DialogTitle>
           </DialogHeader>
