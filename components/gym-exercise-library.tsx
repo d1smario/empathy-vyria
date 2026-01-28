@@ -170,8 +170,14 @@ export default function GymExerciseLibrary({
   
   // Generate workout with AI and save to calendar
   const generateAIWorkout = async () => {
+    console.log("[v0] generateAIWorkout called")
+    console.log("[v0] effectiveAthleteId:", effectiveAthleteId)
+    console.log("[v0] currentAthleteId:", currentAthleteId)
+    console.log("[v0] athleteId prop:", athleteId)
+    console.log("[v0] aiSelectedDate:", aiSelectedDate)
+    
     if (!effectiveAthleteId) {
-      alert("Errore: Nessun utente loggato")
+      alert("Errore: Nessun utente loggato. Effettua il login e riprova.")
       return
     }
     
@@ -240,12 +246,17 @@ export default function GymExerciseLibrary({
           },
         }
         
-        const { error: insertError } = await supabase
+        console.log("[v0] Saving to training_activities:", activityData)
+        
+        const { data: insertData, error: insertError } = await supabase
           .from('training_activities')
           .insert(activityData)
+          .select()
+        
+        console.log("[v0] Insert result:", insertData, insertError)
         
         if (insertError) {
-          console.error("Save error:", insertError)
+          console.error("[v0] Save error:", insertError)
           alert(`Scheda generata ma errore nel salvataggio: ${insertError.message}`)
         } else {
           setShowAIGenerator(false)
