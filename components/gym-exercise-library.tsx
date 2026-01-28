@@ -95,47 +95,10 @@ export default function GymExerciseLibrary({
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentAthleteId, setCurrentAthleteId] = useState<string | null>(null)
-  const [isLoadingAthlete, setIsLoadingAthlete] = useState(true)
-  const supabase = createClient() // Declare supabase variable here
+  const [currentAthleteId, setCurrentAthleteId] = useState<string | null>(null) // Declare currentAthleteId
 
-  // Get current logged in user's athlete_id on mount
-  useEffect(() => {
-    const fetchCurrentAthlete = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        console.log("[v0] Current auth user:", user?.id)
-        
-        if (user) {
-          const { data: athlete, error } = await supabase
-            .from('athletes')
-            .select('id')
-            .eq('user_id', user.id)
-            .single()
-          
-          console.log("[v0] Athlete lookup result:", athlete, error)
-          
-          if (athlete) {
-            setCurrentAthleteId(athlete.id)
-          }
-        }
-      } catch (e) {
-        console.error("[v0] Error fetching athlete:", e)
-      } finally {
-        setIsLoadingAthlete(false)
-      }
-    }
-    
-    if (!athleteId) {
-      fetchCurrentAthlete()
-    } else {
-      setCurrentAthleteId(athleteId)
-      setIsLoadingAthlete(false)
-    }
-  }, [athleteId])
-  
-  // Use athleteId prop or current athlete's ID from database
-  const effectiveAthleteId = athleteId || currentAthleteId
+  // athleteId comes from parent component (VYRIA -> GymExerciseLibrary)
+  const effectiveAthleteId = athleteId
 
 // Mapping gruppi muscolari per database locale
   const MUSCLE_GROUP_MAP: Record<string, string[]> = {
@@ -183,11 +146,7 @@ export default function GymExerciseLibrary({
   
   // Generate workout with AI and save to calendar
   const generateAIWorkout = async () => {
-    console.log("[v0] generateAIWorkout called")
-    console.log("[v0] effectiveAthleteId:", effectiveAthleteId)
-    console.log("[v0] currentAthleteId:", currentAthleteId)
-    console.log("[v0] athleteId prop:", athleteId)
-    console.log("[v0] aiSelectedDate:", aiSelectedDate)
+    console.log("[v0] generateAIWorkout - athleteId:", athleteId, "date:", aiSelectedDate)
     
     if (!effectiveAthleteId) {
       alert("Errore: Nessun utente loggato. Effettua il login e riprova.")

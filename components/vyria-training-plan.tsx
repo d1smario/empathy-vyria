@@ -1798,13 +1798,20 @@ return (
         
         {/* TAB: PALESTRA */}
         <TabsContent value="gym" className="space-y-6 mt-6">
-          <GymExerciseLibrary
-            onSaveWorkout={handleGymWorkoutSave}
-            selectedDay={selectedDay}
-            onDayChange={setSelectedDay}
-            dayNames={DAY_NAMES}
-            athleteId={athleteData?.id}
-          />
+          {console.log("[v0] VYRIA GymTab - athleteData:", athleteData?.id)}
+          {!athleteData?.id ? (
+            <div className="p-4 bg-red-500/20 border border-red-500 rounded-lg text-center">
+              <p className="text-red-400">Errore: Dati atleta non disponibili. Ricarica la pagina.</p>
+            </div>
+          ) : (
+            <GymExerciseLibrary
+              onSaveWorkout={handleGymWorkoutSave}
+              selectedDay={selectedDay}
+              onDayChange={setSelectedDay}
+              dayNames={DAY_NAMES}
+              athleteId={athleteData.id}
+            />
+          )}
         </TabsContent>
         {/* TAB: BIBLIOTECA */}
         <TabsContent value="library" className="space-y-6 mt-6">
