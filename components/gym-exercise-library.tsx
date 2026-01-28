@@ -95,8 +95,25 @@ export default function GymExerciseLibrary({
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   
   const supabase = createClient()
+  
+  // Get current logged in user ID if no athleteId provided
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setCurrentUserId(user.id)
+      }
+    }
+    if (!athleteId) {
+      fetchCurrentUser()
+    }
+  }, [athleteId, supabase.auth])
+  
+  // Use athleteId prop or current user ID
+  const effectiveAthleteId = athleteId || currentUserId
 
 // Mapping gruppi muscolari per database locale
   const MUSCLE_GROUP_MAP: Record<string, string[]> = {
@@ -144,8 +161,8 @@ export default function GymExerciseLibrary({
   
   // Generate workout with AI and save to calendar
   const generateAIWorkout = async () => {
-    if (!athleteId) {
-      alert("Errore: Nessun atleta selezionato")
+    if (!effectiveAthleteId) {
+      alert("Errore: Nessun utente loggato")
       return
     }
     
@@ -188,7 +205,7 @@ export default function GymExerciseLibrary({
         // Save to calendar (training_activities)
         setAiSaving(true)
         const activityData = {
-          athlete_id: athleteId,
+          athlete_id: effectiveAthleteId,
           activity_date: format(aiSelectedDate, 'yyyy-MM-dd'),
           activity_type: 'strength',
           title: data.workout.name,
@@ -549,16 +566,16 @@ export default function GymExerciseLibrary({
 
       {/* AI Workout Generator Dialog */}
       <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
-        <DialogContent className="max-w-md max-h-[90vh] bg-zinc-900 border-zinc-700 flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent className="max-w-md bg-zinc-900 border-zinc-700 p-0 gap-0 max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0 p-6 pb-4 border-b border-zinc-700">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-fuchsia-500" />
               Genera Scheda con AI
             </DialogTitle>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 pr-4" style={{ maxHeight: '60vh' }}>
-            <div className="space-y-4 pb-4">
+          <div className="flex-1 overflow-y-auto p-6 pt-4">
+            <div className="space-y-4">
               {/* Obiettivo */}
               <div>
                 <Label>Obiettivo</Label>
@@ -661,22 +678,22 @@ export default function GymExerciseLibrary({
                 </p>
               </div>
               
-              {!athleteId && (
+              {!effectiveAthleteId && (
                 <div className="p-2 bg-red-500/20 border border-red-500/50 rounded text-xs text-red-400">
-                  Nessun atleta selezionato
+                  Effettua il login per salvare la scheda
                 </div>
-              )}
+)}
             </div>
-          </ScrollArea>
+          </div>
           
-          <DialogFooter className="flex-shrink-0 pt-3 border-t border-zinc-700 gap-2">
+          <DialogFooter className="flex-shrink-0 p-6 pt-4 border-t border-zinc-700 gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowAIGenerator(false)}>
               Annulla
             </Button>
             <Button 
               size="sm"
               onClick={generateAIWorkout}
-              disabled={aiGenerating || aiSaving || aiMuscleGroups.length === 0 || !athleteId}
+              disabled={aiGenerating || aiSaving || aiMuscleGroups.length === 0 || !effectiveAthleteId}
               className="bg-gradient-to-r from-fuchsia-500 to-purple-600"
             >
               {aiGenerating || aiSaving ? (
