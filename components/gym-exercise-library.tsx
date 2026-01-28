@@ -146,8 +146,6 @@ export default function GymExerciseLibrary({
   
   // Generate workout with AI and save to calendar
   const generateAIWorkout = async () => {
-    console.log("[v0] generateAIWorkout - athleteId:", athleteId, "date:", aiSelectedDate)
-    
     if (!effectiveAthleteId) {
       alert("Errore: Nessun utente loggato. Effettua il login e riprova.")
       return
