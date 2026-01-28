@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { WorkoutDetailModal } from "@/components/workout-detail-modal"
 import { ActivityDetailView } from "@/components/activity-detail-view"
+import { GymWorkoutDetail } from "@/components/gym-workout-detail"
 
 interface Activity {
   id: string
@@ -463,6 +464,24 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
   
   // Load and show detailed activity view
   const handleActivityClick = async (activity: Activity) => {
+    // For strength/gym workouts, load full details including intervals/exercises
+    if (activity.activity_type === 'strength' || activity.source === 'ai_generated') {
+      try {
+        const { data, error } = await supabase
+          .from('training_activities')
+          .select('*')
+          .eq('id', activity.id)
+          .single()
+        
+        if (data && !error) {
+          setSelectedActivity(data)
+          return
+        }
+      } catch (e) {
+        console.error('[v0] Error loading strength activity:', e)
+      }
+    }
+    
     // If this activity has an 'imported' source, load full details from imported_activities
     if (activity.source === 'imported' || activity.source === 'manual_upload') {
       try {
@@ -1009,14 +1028,28 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
         athleteFTP={athleteFTP}
       />
   
-      {/* Activity Detail View Modal */}
-      {selectedActivity && (
-        <ActivityDetailView
-          activity={selectedActivity}
-          onClose={() => setSelectedActivity(null)}
-          athleteFTP={athleteFTP}
-        />
-      )}
+{/* Activity Detail View Modal - Gym or Cycling */}
+  {selectedActivity && selectedActivity.activity_type === 'strength' ? (
+    <GymWorkoutDetail
+      workout={{
+        id: selectedActivity.id,
+        title: selectedActivity.title,
+        description: selectedActivity.description,
+        activity_date: selectedActivity.activity_date,
+        duration_minutes: selectedActivity.duration_minutes,
+        completed: selectedActivity.completed,
+        intervals: selectedActivity.intervals,
+      }}
+      isOpen={!!selectedActivity}
+      onClose={() => setSelectedActivity(null)}
+    />
+  ) : selectedActivity ? (
+    <ActivityDetailView
+      activity={selectedActivity}
+      onClose={() => setSelectedActivity(null)}
+      athleteFTP={athleteFTP}
+    />
+  ) : null}
     </div>
   )
 }
