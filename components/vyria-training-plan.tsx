@@ -1046,14 +1046,14 @@ const saveEditorWorkout = async () => {
   const renderInlineEditor = () => {
     const blockType = (type: string) => BLOCK_TYPES.find((b) => b.id === type)
 
-    return (
-      <Card className="border-fuchsia-500/50 bg-fuchsia-500/5">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Zap className="h-5 w-5 text-fuchsia-500" />
-              Crea Allenamento
-            </CardTitle>
+return (
+  <Card id="workout-editor" className="border-fuchsia-500/50 bg-fuchsia-500/5">
+  <CardHeader className="pb-3">
+  <div className="flex items-center justify-between">
+  <CardTitle className="text-lg flex items-center gap-2">
+  <Zap className="h-5 w-5 text-fuchsia-500" />
+  Crea Allenamento
+  </CardTitle>
             <Button variant="ghost" size="icon" onClick={resetEditor}>
               <X className="h-4 w-4" />
             </Button>
@@ -1747,6 +1747,10 @@ const saveEditorWorkout = async () => {
                               setEditorNotes(session.description)
                               setEditorBlocks(session.blocks || [])
                               setShowInlineEditor(true)
+                              // Scroll to editor
+                              setTimeout(() => {
+                                document.getElementById('workout-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                              }, 100)
                             }}
                           >
                             <Pencil className="h-3 w-3 mr-1" />
