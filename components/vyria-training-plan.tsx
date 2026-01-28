@@ -869,13 +869,17 @@ const saveEditorWorkout = async () => {
     }
     
     console.log("[v0] Saving workout to DB:", workoutData)
+    console.log("[v0] Athlete ID:", athleteData.id, "User ID:", athleteData.user_id)
     
-    const { error } = await supabase.from("training_activities").insert(workoutData)
+    const { data: insertedData, error } = await supabase.from("training_activities").insert(workoutData).select()
     
     if (error) {
-      console.error("[v0] Error saving workout:", error)
+      console.error("[v0] Error saving workout:", error.message, error.details, error.hint)
+      alert(`Errore salvataggio: ${error.message}`)
       throw error
     }
+    
+    console.log("[v0] Workout saved successfully:", insertedData)
     
     // Also add to local state for immediate UI update
     const newSession: TrainingSession = {
