@@ -1,30 +1,31 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Dumbbell, Plus, Clock, Flame, X, RotateCcw, Save, Calendar, FileDown, Info, Loader2 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Dumbbell, Plus, Clock, Flame, X, RotateCcw, Save, Calendar, FileDown, Info, Loader2, Sparkles, Zap } from "lucide-react"
 import Image from "next/image"
 import { EXERCISE_DATABASE, type Exercise as LocalExercise } from "@/lib/exercise-database"
 
-// Gruppi muscolari con mapping al database locale
+// Gruppi muscolari - nomi ESATTI dall'API ExerciseDB
 const MUSCLE_GROUPS = [
-  { id: "chest", name: "Chest", color: "#ef4444", dbGroups: ["chest"] },
-  { id: "back", name: "Back", color: "#3b82f6", dbGroups: ["back"] },
-  { id: "shoulders", name: "Shoulders", color: "#f97316", dbGroups: ["shoulders"] },
-  { id: "upper arms", name: "Upper Arms", color: "#22c55e", dbGroups: ["biceps", "triceps"] },
-  { id: "upper legs", name: "Upper Legs", color: "#06b6d4", dbGroups: ["legs", "glutes"] },
-  { id: "waist", name: "Waist / Core", color: "#eab308", dbGroups: ["core"] },
-  { id: "lower legs", name: "Lower Legs", color: "#8b5cf6", dbGroups: ["calves"] },
-  { id: "lower arms", name: "Lower Arms", color: "#ec4899", dbGroups: ["forearms"] },
-  { id: "cardio", name: "Cardio", color: "#14b8a6", dbGroups: ["cardio"] },
-  { id: "neck", name: "Neck", color: "#6366f1", dbGroups: ["neck"] },
+  { id: "chest", name: "Chest", color: "#ef4444" },
+  { id: "back", name: "Back", color: "#3b82f6" },
+  { id: "shoulders", name: "Shoulders", color: "#f97316" },
+  { id: "upper arms", name: "Upper Arms", color: "#22c55e" },
+  { id: "upper legs", name: "Upper Legs", color: "#06b6d4" },
+  { id: "waist", name: "Waist / Core", color: "#eab308" },
+  { id: "lower legs", name: "Lower Legs", color: "#8b5cf6" },
+  { id: "lower arms", name: "Lower Arms", color: "#ec4899" },
+  { id: "cardio", name: "Cardio", color: "#14b8a6" },
+  { id: "neck", name: "Neck", color: "#6366f1" },
 ]
 
 interface Exercise {
@@ -78,37 +79,52 @@ export default function GymExerciseLibrary({
   const [showExerciseDetail, setShowExerciseDetail] = useState<Exercise | null>(null)
   const [workoutName, setWorkoutName] = useState("")
   const [workoutNotes, setWorkoutNotes] = useState("")
+  
+  // AI Generator State
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [aiGoal, setAiGoal] = useState<string>("ipertrofia")
+  const [aiLevel, setAiLevel] = useState<string>("intermedio")
+  const [aiDuration, setAiDuration] = useState<number>(60)
+  const [aiMuscleGroups, setAiMuscleGroups] = useState<string[]>(["petto", "tricipiti"])
+  const [aiGenerating, setAiGenerating] = useState(false)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Convert local exercise to component format
-  const convertLocalExercise = useCallback((ex: LocalExercise): Exercise => ({
-    id: ex.id,
-    name: ex.name,
-    nameIt: ex.name,
-    bodyPart: ex.muscleGroup,
-    target: ex.musclesActivated.primary[0] || ex.muscleGroup,
-    secondaryMuscles: ex.musclesActivated.secondary,
-    equipment: ex.equipment,
-    gifUrl: ex.image,
-    imageUrl: ex.image,
-    instructions: ex.instructions,
-  }), [])
+// Mapping gruppi muscolari per database locale
+  const MUSCLE_GROUP_MAP: Record<string, string[]> = {
+    "chest": ["chest"],
+    "back": ["back"],
+    "shoulders": ["shoulders"],
+    "upper arms": ["biceps", "triceps"],
+    "upper legs": ["legs", "glutes"],
+    "waist": ["core"],
+    "lower legs": ["calves"],
+    "lower arms": ["forearms"],
+    "cardio": ["cardio"],
+    "neck": ["neck"],
+  }
 
   // Fetch exercises from LOCAL DATABASE
   const fetchExercises = useCallback((bodyPart: string) => {
     setLoading(true)
     setError(null)
     
-    // Find the muscle group mapping
-    const group = MUSCLE_GROUPS.find(g => g.id === bodyPart)
-    const dbGroups = group?.dbGroups || [bodyPart]
-    
-    // Filter exercises from local database
+    const dbGroups = MUSCLE_GROUP_MAP[bodyPart] || [bodyPart]
     const filtered = EXERCISE_DATABASE.filter(ex => 
       dbGroups.includes(ex.muscleGroup)
-    ).map(convertLocalExercise)
+    ).map(ex => ({
+      id: ex.id,
+      name: ex.name,
+      nameIt: ex.name,
+      bodyPart: ex.muscleGroup,
+      target: ex.musclesActivated.primary[0] || ex.muscleGroup,
+      secondaryMuscles: ex.musclesActivated.secondary,
+      equipment: ex.equipment,
+      gifUrl: ex.image,
+      imageUrl: ex.image,
+      instructions: ex.instructions,
+    }))
     
     if (filtered.length > 0) {
       setExercises(filtered)
@@ -117,7 +133,57 @@ export default function GymExerciseLibrary({
       setExercises([])
     }
     setLoading(false)
-  }, [convertLocalExercise])
+  }, [])
+  
+  // Generate workout with AI
+  const generateAIWorkout = async () => {
+    setAiGenerating(true)
+    try {
+      const response = await fetch("/api/ai/gym-workout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: aiGoal,
+          muscleGroups: aiMuscleGroups,
+          level: aiLevel,
+          duration: aiDuration,
+          equipment: ["bilanciere", "manubri", "macchine", "cavi"],
+        }),
+      })
+      
+      const data = await response.json()
+      
+      if (data.success && data.workout) {
+        // Convert AI workout to selectedExercises format
+        const aiExercises: SelectedExercise[] = data.workout.exercises.map((ex: any, idx: number) => ({
+          id: `ai-${idx}-${Date.now()}`,
+          name: ex.name,
+          nameIt: ex.name,
+          bodyPart: ex.muscleGroup,
+          target: ex.muscleGroup,
+          equipment: ex.equipment,
+          sets: ex.sets,
+          reps: parseInt(ex.reps) || 12,
+          weight: 0,
+          restSeconds: ex.rest,
+          notes: ex.notes || "",
+        }))
+        
+        setSelectedExercises(aiExercises)
+        setWorkoutName(data.workout.name)
+        setWorkoutNotes(data.workout.description)
+        setShowAIGenerator(false)
+        alert(`Scheda "${data.workout.name}" generata con ${aiExercises.length} esercizi!`)
+      } else {
+        alert("Errore nella generazione: " + (data.error || "Riprova"))
+      }
+    } catch (err) {
+      console.error("AI generation error:", err)
+      alert("Errore nella generazione della scheda")
+    } finally {
+      setAiGenerating(false)
+    }
+  }
 
   // Search exercises in LOCAL DATABASE
   const searchExercises = useCallback((query: string) => {
@@ -133,9 +199,19 @@ export default function GymExerciseLibrary({
       ex.name.toLowerCase().includes(searchLower) ||
       ex.nameEn.toLowerCase().includes(searchLower) ||
       ex.muscleGroup.toLowerCase().includes(searchLower) ||
-      ex.equipment.toLowerCase().includes(searchLower) ||
-      ex.musclesActivated.primary.some(m => m.toLowerCase().includes(searchLower))
-    ).map(convertLocalExercise)
+      ex.equipment.toLowerCase().includes(searchLower)
+    ).map(ex => ({
+      id: ex.id,
+      name: ex.name,
+      nameIt: ex.name,
+      bodyPart: ex.muscleGroup,
+      target: ex.musclesActivated.primary[0] || ex.muscleGroup,
+      secondaryMuscles: ex.musclesActivated.secondary,
+      equipment: ex.equipment,
+      gifUrl: ex.image,
+      imageUrl: ex.image,
+      instructions: ex.instructions,
+    }))
     
     if (filtered.length > 0) {
       setExercises(filtered)
@@ -144,7 +220,7 @@ export default function GymExerciseLibrary({
       setExercises([])
     }
     setLoading(false)
-  }, [selectedGroup, fetchExercises, convertLocalExercise])
+  }, [selectedGroup, fetchExercises])
 
   // Load exercises when muscle group changes
   useEffect(() => {
@@ -326,11 +402,18 @@ export default function GymExerciseLibrary({
     <div className="space-y-4 bg-background">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Dumbbell className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Libreria Esercizi</h2>
-        </div>
-        <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
+  <Dumbbell className="h-5 w-5 text-primary" />
+  <h2 className="text-lg font-semibold">Libreria Esercizi</h2>
+  </div>
+  <div className="flex items-center gap-2">
+  <Button 
+    onClick={() => setShowAIGenerator(true)}
+    className="bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700"
+  >
+    <Sparkles className="h-4 w-4 mr-2" />
+    Genera con AI
+  </Button>
           <Select value={selectedDay.toString()} onValueChange={(v) => onDayChange?.(Number.parseInt(v))}>
             <SelectTrigger className="w-32">
               <Calendar className="h-4 w-4 mr-2" />
@@ -638,6 +721,116 @@ export default function GymExerciseLibrary({
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* AI Generator Dialog */}
+      <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+        <DialogContent className="max-w-md bg-zinc-900 border border-zinc-700">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-fuchsia-500" />
+              Genera Scheda con AI
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Obiettivo */}
+            <div>
+              <Label>Obiettivo</Label>
+              <Select value={aiGoal} onValueChange={setAiGoal}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="ipertrofia">Ipertrofia (massa muscolare)</SelectItem>
+                  <SelectItem value="forza">Forza massimale</SelectItem>
+                  <SelectItem value="resistenza">Resistenza muscolare</SelectItem>
+                  <SelectItem value="dimagrimento">Dimagrimento / Tono</SelectItem>
+                  <SelectItem value="funzionale">Allenamento funzionale</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Livello */}
+            <div>
+              <Label>Livello</Label>
+              <Select value={aiLevel} onValueChange={setAiLevel}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="principiante">Principiante</SelectItem>
+                  <SelectItem value="intermedio">Intermedio</SelectItem>
+                  <SelectItem value="avanzato">Avanzato</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Durata */}
+            <div>
+              <Label>Durata (minuti)</Label>
+              <Select value={aiDuration.toString()} onValueChange={(v) => setAiDuration(Number(v))}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="30">30 min</SelectItem>
+                  <SelectItem value="45">45 min</SelectItem>
+                  <SelectItem value="60">60 min</SelectItem>
+                  <SelectItem value="75">75 min</SelectItem>
+                  <SelectItem value="90">90 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Gruppi Muscolari */}
+            <div>
+              <Label>Gruppi Muscolari (seleziona multipli)</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {["petto", "schiena", "spalle", "bicipiti", "tricipiti", "gambe", "glutei", "core", "polpacci"].map(group => (
+                  <Button
+                    key={group}
+                    size="sm"
+                    variant={aiMuscleGroups.includes(group) ? "default" : "outline"}
+                    className={aiMuscleGroups.includes(group) ? "bg-fuchsia-500 hover:bg-fuchsia-600" : ""}
+                    onClick={() => {
+                      if (aiMuscleGroups.includes(group)) {
+                        setAiMuscleGroups(aiMuscleGroups.filter(g => g !== group))
+                      } else {
+                        setAiMuscleGroups([...aiMuscleGroups, group])
+                      }
+                    }}
+                  >
+                    {group.charAt(0).toUpperCase() + group.slice(1)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAIGenerator(false)}>
+              Annulla
+            </Button>
+            <Button 
+              onClick={generateAIWorkout}
+              disabled={aiGenerating || aiMuscleGroups.length === 0}
+              className="bg-gradient-to-r from-fuchsia-500 to-purple-600"
+            >
+              {aiGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generazione...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Genera Scheda
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
