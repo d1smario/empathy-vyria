@@ -1010,7 +1010,10 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
                       const duration = activity.duration_minutes || activity.actual_duration_min || 0
                       const tss = activity.tss || 0
                       const avgPower = activity.average_power || activity.avg_power || Math.round(ftp * 0.75)
-                      const kcal = activity.calories || Math.round(avgPower * duration / 60 * 3.6 / 0.25)
+                      // kcal = (work kJ / efficiency 25%) / 4.184
+                      // work kJ = power W * duration s / 1000
+                      const workKJ = (avgPower * duration * 60) / 1000
+                      const kcal = activity.calories || Math.round((workKJ / 0.25) / 4.184)
                       const blocks = activity.intervals?.blocks || []
                       
                       return (
