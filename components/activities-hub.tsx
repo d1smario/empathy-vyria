@@ -931,45 +931,13 @@ export function ActivitiesHub({ athleteData, userName }: ActivitiesHubProps) {
 
       {/* Library Dialog with full WorkoutLibrary */}
       <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-zinc-700">
           <WorkoutLibrary 
+            athleteId={athleteData?.id || ""}
             onAssignToDay={async (dayIndex, workout) => {
-              // Calculate target date from dayIndex (0 = Monday of current week)
-              const weekStart = startOfWeek(selectedDate || currentDate, { weekStartsOn: 1 })
-              const targetDate = new Date(weekStart)
-              targetDate.setDate(targetDate.getDate() + dayIndex)
-              
-              // Create activity from workout template
-              try {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-                
-                const newActivity = {
-                  user_id: user.id,
-                  activity_date: format(targetDate, 'yyyy-MM-dd'),
-                  activity_type: workout.sport,
-                  title: workout.name,
-                  description: workout.description,
-                  duration_minutes: workout.duration_minutes,
-                  tss: workout.tss_estimate,
-                  target_zone: workout.primary_zone,
-                  intervals: workout.intervals ? { blocks: workout.intervals } : null,
-                  completed: false,
-                  source: 'coach',
-                }
-                
-                const { error } = await supabase
-                  .from('training_activities')
-                  .insert(newActivity)
-                
-                if (error) throw error
-                
-                // Refresh activities
-                setActivities(prev => [...prev, { ...newActivity, id: crypto.randomUUID() } as Activity])
-                setShowLibrary(false)
-              } catch (error) {
-                console.error('Error assigning workout:', error)
-              }
+              // Refresh after assignment
+              fetchData()
+              setShowLibrary(false)
             }}
           />
         </DialogContent>
