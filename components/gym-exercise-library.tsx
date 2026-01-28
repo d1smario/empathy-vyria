@@ -455,18 +455,18 @@ export default function GymExerciseLibrary({
     <div className="space-y-4 bg-background">
       {/* Header */}
       <div className="flex items-center justify-between">
-<div className="flex items-center gap-2">
-  <Dumbbell className="h-5 w-5 text-primary" />
-  <h2 className="text-lg font-semibold">Libreria Esercizi</h2>
-  </div>
-  <div className="flex items-center gap-2">
-  <Button 
-    onClick={() => setShowAIGenerator(true)}
-    className="bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700"
-  >
-    <Sparkles className="h-4 w-4 mr-2" />
-    Genera con AI
-  </Button>
+        <div className="flex items-center gap-2">
+          <Dumbbell className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Libreria Esercizi</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => setShowAIGenerator(true)}
+            className="bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Genera con AI
+          </Button>
           <Select value={selectedDay.toString()} onValueChange={(v) => onDayChange?.(Number.parseInt(v))}>
             <SelectTrigger className="w-32">
               <Calendar className="h-4 w-4 mr-2" />
@@ -516,392 +516,165 @@ export default function GymExerciseLibrary({
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Exercise list */}
-        <div className="lg:col-span-3">
-          <Card className="bg-card">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <span 
-                  className="w-3 h-3 rounded-full" 
-                  style={{ backgroundColor: getMuscleGroupColor(selectedGroup) }}
-                />
-                {MUSCLE_GROUPS.find(g => g.id === selectedGroup)?.name || selectedGroup} 
-                {!loading && ` (${exercises.length})`}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2">
-              {loading ? (
-                <div className="flex items-center justify-center h-[500px]">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : error ? (
-                <div className="flex items-center justify-center h-[500px] text-muted-foreground">
-                  {error}
-                </div>
-              ) : (
-                <ScrollArea className="h-[500px]">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-2">
-                    {exercises.map((exercise) => (
-                      <Card
-                        key={exercise.id}
-                        className={`cursor-pointer hover:border-primary transition-colors ${
-                          selectedExercises.find((e) => e.id === exercise.id) ? "border-primary bg-primary/10" : ""
-                        }`}
-                        onClick={() => addExercise(exercise)}
-                      >
-                        <CardContent className="p-2">
-                          <div className="relative aspect-square mb-2 rounded overflow-hidden bg-muted">
-                            <Image
-                              src={exercise.gifUrl || exercise.imageUrl || "/placeholder.svg"}
-                              alt={exercise.name}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.src = "/placeholder.svg?height=150&width=150"
-                              }}
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute top-1 right-1 h-6 w-6 p-0 bg-black/50 hover:bg-black/70"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setShowExerciseDetail(exercise)
-                              }}
-                            >
-                              <Info className="h-3 w-3 text-white" />
-                            </Button>
-                          </div>
-                          <p className="text-xs font-medium truncate">{exercise.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {exercise.target || exercise.bodyPart}
-                          </p>
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            {exercise.equipment && (
-                              <Badge variant="outline" className="text-xs px-1">
-                                {exercise.equipment}
-                              </Badge>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
+      {/* Exercise List */}
+      <ScrollArea className="max-h-[600px]">
+        {exercises.map((exercise, index) => (
+          <div key={exercise.id} className="flex items-center justify-between gap-4 p-4 border-b">
+            <div className="flex items-center gap-4">
+              {exercise.gifUrl && (
+                <Image src={exercise.gifUrl || "/placeholder.svg"} alt={exercise.name} width={50} height={50} className="rounded" />
               )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Workout builder */}
-        <div className="lg:col-span-2">
-          <Card className="bg-card">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <span>Scheda ({selectedExercises.length})</span>
-                {selectedExercises.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={handleReset}>
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 space-y-3">
-              <Input
-                placeholder="Nome scheda..."
-                value={workoutName}
-                onChange={(e) => setWorkoutName(e.target.value)}
-                className="bg-background"
-              />
-
-              <ScrollArea className="h-[350px]">
-                {selectedExercises.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Clicca sugli esercizi per aggiungerli
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedExercises.map((ex, idx) => (
-                      <Card key={ex.id} className="p-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium truncate flex-1">
-                            {idx + 1}. {ex.name}
-                          </span>
-                          <Button variant="ghost" size="sm" onClick={() => removeExercise(ex.id)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
-                          <div>
-                            <Label className="text-xs">Serie</Label>
-                            <Input
-                              type="number"
-                              value={ex.sets}
-                              onChange={(e) => updateExercise(ex.id, "sets", Number.parseInt(e.target.value) || 0)}
-                              className="h-8 text-sm text-center"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Reps</Label>
-                            <Input
-                              type="number"
-                              value={ex.reps}
-                              onChange={(e) => updateExercise(ex.id, "reps", Number.parseInt(e.target.value) || 0)}
-                              className="h-8 text-sm text-center"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Kg</Label>
-                            <Input
-                              type="number"
-                              value={ex.weight}
-                              onChange={(e) => updateExercise(ex.id, "weight", Number.parseInt(e.target.value) || 0)}
-                              className="h-8 text-sm text-center"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Rec</Label>
-                            <Input
-                              type="number"
-                              value={ex.restSeconds}
-                              onChange={(e) =>
-                                updateExercise(ex.id, "restSeconds", Number.parseInt(e.target.value) || 0)
-                              }
-                              className="h-8 text-sm text-center"
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-
-              {selectedExercises.length > 0 && (
-                <>
-                  <Input
-                    placeholder="Note aggiuntive..."
-                    value={workoutNotes}
-                    onChange={(e) => setWorkoutNotes(e.target.value)}
-                    className="bg-background"
-                  />
-                  <div className="flex justify-between text-sm border-t pt-2">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" /> {totals.duration} min
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Flame className="h-4 w-4" /> {totals.calories} kcal
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button className="flex-1" onClick={handleSave}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Salva in Training
-                    </Button>
-                    <Button variant="outline" onClick={handleDownloadPDF}>
-                      <FileDown className="h-4 w-4 mr-2" />
-                      PDF
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Exercise detail modal */}
-      <Dialog open={!!showExerciseDetail} onOpenChange={() => setShowExerciseDetail(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{showExerciseDetail?.name}</DialogTitle>
-          </DialogHeader>
-          {showExerciseDetail && (
-            <div className="space-y-4">
-              <div className="relative aspect-video rounded overflow-hidden bg-muted">
-                <Image
-                  src={showExerciseDetail.gifUrl || showExerciseDetail.imageUrl || "/placeholder.svg"}
-                  alt={showExerciseDetail.name}
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
+              <div>
+                <h3 className="font-semibold">{exercise.name}</h3>
+                <p className="text-sm text-muted-foreground">{exercise.bodyPart}</p>
               </div>
-              <div className="space-y-2">
-                <div className="flex gap-2 flex-wrap">
-                  <Badge style={{ backgroundColor: getMuscleGroupColor(showExerciseDetail.bodyPart) }}>
-                    {showExerciseDetail.bodyPartIt || showExerciseDetail.bodyPart}
-                  </Badge>
-                  {showExerciseDetail.target && (
-                    <Badge variant="outline">{showExerciseDetail.target}</Badge>
-                  )}
-                  {showExerciseDetail.equipment && (
-                    <Badge variant="secondary">{showExerciseDetail.equipment}</Badge>
-                  )}
-                </div>
-                {showExerciseDetail.secondaryMuscles && showExerciseDetail.secondaryMuscles.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-1">Muscoli secondari:</p>
-                    <div className="flex gap-1 flex-wrap">
-                      {showExerciseDetail.secondaryMuscles.map((muscle, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {muscle}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {showExerciseDetail.instructions && showExerciseDetail.instructions.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-1">Istruzioni:</p>
-                    <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-                      {showExerciseDetail.instructions.map((instruction, i) => (
-                        <li key={i}>{instruction}</li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-              </div>
-              <Button className="w-full" onClick={() => {
-                addExercise(showExerciseDetail)
-                setShowExerciseDetail(null)
-              }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Aggiungi alla scheda
-              </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
-      
-      {/* AI Generator Dialog */}
+            <Button variant="ghost" onClick={() => addExercise(exercise)}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <p className="ml-2 text-sm text-muted-foreground">Caricamento esercizi...</p>
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center justify-center p-4 text-red-600">
+            {error}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* AI Workout Generator Dialog */}
       <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
-        <DialogContent className="max-w-md bg-zinc-900 border border-zinc-700">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] bg-zinc-900 border-zinc-700 flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-fuchsia-500" />
               Genera Scheda con AI
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {/* Obiettivo */}
-            <div>
-              <Label>Obiettivo</Label>
-              <Select value={aiGoal} onValueChange={setAiGoal}>
-                <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  <SelectItem value="ipertrofia">Ipertrofia (massa muscolare)</SelectItem>
-                  <SelectItem value="forza">Forza massimale</SelectItem>
-                  <SelectItem value="resistenza">Resistenza muscolare</SelectItem>
-                  <SelectItem value="dimagrimento">Dimagrimento / Tono</SelectItem>
-                  <SelectItem value="funzionale">Allenamento funzionale</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Livello */}
-            <div>
-              <Label>Livello</Label>
-              <Select value={aiLevel} onValueChange={setAiLevel}>
-                <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  <SelectItem value="principiante">Principiante</SelectItem>
-                  <SelectItem value="intermedio">Intermedio</SelectItem>
-                  <SelectItem value="avanzato">Avanzato</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Durata */}
-            <div>
-              <Label>Durata (minuti)</Label>
-              <Select value={aiDuration.toString()} onValueChange={(v) => setAiDuration(Number(v))}>
-                <SelectTrigger className="bg-zinc-800 border-zinc-700">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  <SelectItem value="30">30 min</SelectItem>
-                  <SelectItem value="45">45 min</SelectItem>
-                  <SelectItem value="60">60 min</SelectItem>
-                  <SelectItem value="75">75 min</SelectItem>
-                  <SelectItem value="90">90 min</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Gruppi Muscolari */}
-            <div>
-              <Label>Gruppi Muscolari (seleziona multipli)</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {["petto", "schiena", "spalle", "bicipiti", "tricipiti", "gambe", "glutei", "core", "polpacci"].map(group => (
-                  <Button
-                    key={group}
-                    size="sm"
-                    variant={aiMuscleGroups.includes(group) ? "default" : "outline"}
-                    className={aiMuscleGroups.includes(group) ? "bg-fuchsia-500 hover:bg-fuchsia-600" : ""}
-                    onClick={() => {
-                      if (aiMuscleGroups.includes(group)) {
-                        setAiMuscleGroups(aiMuscleGroups.filter(g => g !== group))
-                      } else {
-                        setAiMuscleGroups([...aiMuscleGroups, group])
-                      }
-                    }}
-                  >
-                    {group.charAt(0).toUpperCase() + group.slice(1)}
-                  </Button>
-                ))}
+          <ScrollArea className="flex-1 pr-4" style={{ maxHeight: '60vh' }}>
+            <div className="space-y-4 pb-4">
+              {/* Obiettivo */}
+              <div>
+                <Label>Obiettivo</Label>
+                <Select value={aiGoal} onValueChange={setAiGoal}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="ipertrofia">Ipertrofia (massa muscolare)</SelectItem>
+                    <SelectItem value="forza">Forza massimale</SelectItem>
+                    <SelectItem value="resistenza">Resistenza muscolare</SelectItem>
+                    <SelectItem value="dimagrimento">Dimagrimento / Tono</SelectItem>
+                    <SelectItem value="funzionale">Allenamento funzionale</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            
-            {/* Data per il Calendario */}
-            <div>
-              <Label className="flex items-center gap-2">
-                <CalendarPlus className="h-4 w-4 text-fuchsia-500" />
-                Data nel Calendario
-              </Label>
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {Array.from({ length: 7 }, (_, i) => {
-                  const date = addDays(new Date(), i)
-                  const isSelected = format(aiSelectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-                  return (
+              
+              {/* Livello */}
+              <div>
+                <Label>Livello</Label>
+                <Select value={aiLevel} onValueChange={setAiLevel}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="principiante">Principiante</SelectItem>
+                    <SelectItem value="intermedio">Intermedio</SelectItem>
+                    <SelectItem value="avanzato">Avanzato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Durata */}
+              <div>
+                <Label>Durata (minuti)</Label>
+                <Select value={aiDuration.toString()} onValueChange={(v) => setAiDuration(Number(v))}>
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="30">30 min</SelectItem>
+                    <SelectItem value="45">45 min</SelectItem>
+                    <SelectItem value="60">60 min</SelectItem>
+                    <SelectItem value="75">75 min</SelectItem>
+                    <SelectItem value="90">90 min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Gruppi Muscolari */}
+              <div>
+                <Label>Gruppi Muscolari</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {["petto", "schiena", "spalle", "bicipiti", "tricipiti", "gambe", "glutei", "core", "polpacci"].map(group => (
                     <Button
-                      key={i}
+                      key={group}
                       size="sm"
-                      variant={isSelected ? "default" : "outline"}
-                      className={`flex flex-col py-2 h-auto ${isSelected ? "bg-fuchsia-500 hover:bg-fuchsia-600" : ""}`}
-                      onClick={() => setAiSelectedDate(date)}
+                      variant={aiMuscleGroups.includes(group) ? "default" : "outline"}
+                      className={aiMuscleGroups.includes(group) ? "bg-fuchsia-500 hover:bg-fuchsia-600" : ""}
+                      onClick={() => {
+                        if (aiMuscleGroups.includes(group)) {
+                          setAiMuscleGroups(aiMuscleGroups.filter(g => g !== group))
+                        } else {
+                          setAiMuscleGroups([...aiMuscleGroups, group])
+                        }
+                      }}
                     >
-                      <span className="text-xs">{format(date, 'EEE', { locale: it })}</span>
-                      <span className="text-lg font-bold">{format(date, 'd')}</span>
+                      {group.charAt(0).toUpperCase() + group.slice(1)}
                     </Button>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Selezionato: {format(aiSelectedDate, 'EEEE d MMMM yyyy', { locale: it })}
-              </p>
+              
+              {/* Data */}
+              <div>
+                <Label className="flex items-center gap-2">
+                  <CalendarPlus className="h-4 w-4 text-fuchsia-500" />
+                  Data nel Calendario
+                </Label>
+                <div className="grid grid-cols-7 gap-1 mt-2">
+                  {Array.from({ length: 7 }, (_, i) => {
+                    const date = addDays(new Date(), i)
+                    const isSelected = format(aiSelectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                    return (
+                      <Button
+                        key={i}
+                        size="sm"
+                        variant={isSelected ? "default" : "outline"}
+                        className={`flex flex-col p-1 h-auto ${isSelected ? "bg-fuchsia-500 hover:bg-fuchsia-600" : ""}`}
+                        onClick={() => setAiSelectedDate(date)}
+                      >
+                        <span className="text-[10px]">{format(date, 'EEE', { locale: it })}</span>
+                        <span className="text-sm font-bold">{format(date, 'd')}</span>
+                      </Button>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {format(aiSelectedDate, 'EEEE d MMMM', { locale: it })}
+                </p>
+              </div>
+              
+              {!athleteId && (
+                <div className="p-2 bg-red-500/20 border border-red-500/50 rounded text-xs text-red-400">
+                  Nessun atleta selezionato
+                </div>
+              )}
             </div>
-            
-            {!athleteId && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-md">
-                <p className="text-sm text-red-400">Attenzione: Nessun atleta selezionato. La scheda non potra essere salvata.</p>
-              </div>
-            )}
-          </div>
+          </ScrollArea>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAIGenerator(false)}>
+          <DialogFooter className="flex-shrink-0 pt-3 border-t border-zinc-700 gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowAIGenerator(false)}>
               Annulla
             </Button>
             <Button 
+              size="sm"
               onClick={generateAIWorkout}
               disabled={aiGenerating || aiSaving || aiMuscleGroups.length === 0 || !athleteId}
               className="bg-gradient-to-r from-fuchsia-500 to-purple-600"
@@ -909,12 +682,12 @@ export default function GymExerciseLibrary({
               {aiGenerating || aiSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {aiGenerating ? "Generazione..." : "Salvataggio..."}
+                  {aiGenerating ? "Generando..." : "Salvando..."}
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  Genera e Salva in Calendario
+                  Genera e Salva
                 </>
               )}
             </Button>
