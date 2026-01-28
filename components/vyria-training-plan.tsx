@@ -625,7 +625,7 @@ return {
   title: session.title,
   description: session.description,
   duration_minutes: session.duration,
-  targetZone: session.targetZone,
+  target_zone: session.targetZone,
   tss: session.tss || Math.round(session.duration * 0.8),
   average_power: session.avgPower,
   calories: session.kcal,
@@ -660,8 +660,9 @@ return {
     // Calcola la data per il giorno selezionato
     const today = new Date()
     const dayOfWeek = today.getDay()
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
     const monday = new Date(today)
-    monday.setDate(today.getDate() - ((dayOfWeek + 7) % 7)) // Correctly calculate Monday of the current week
+    monday.setDate(today.getDate() + mondayOffset)
     const activityDate = new Date(monday)
     activityDate.setDate(monday.getDate() + selectedDay)
 
@@ -1684,7 +1685,19 @@ const saveEditorWorkout = async () => {
                     const sportInfo = SPORTS.find(s => s.id === session.sport)
                     const SportIcon = sportInfo?.icon || Activity
                     return (
-                      <div key={session.sessionId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div 
+                        key={session.sessionId} 
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/80 cursor-pointer transition-colors"
+                        onClick={() => {
+                          // Load session into editor
+                          setSelectedDay(session.dayIndex)
+                          setEditorSport(session.sport)
+                          setEditorTitle(session.title)
+                          setEditorNotes(session.description)
+                          setEditorBlocks(session.blocks || [])
+                          setShowInlineEditor(true)
+                        }}
+                      >
                         <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-lg ${ZONE_COLORS[session.targetZone] || 'bg-blue-500'}`}>
                             <SportIcon className="h-4 w-4 text-white" />
@@ -1701,7 +1714,8 @@ const saveEditorWorkout = async () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation()
                               setSessionToDelete(session.sessionId)
                               setDeleteDialogOpen(true)
                             }}
