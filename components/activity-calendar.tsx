@@ -542,8 +542,15 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
   }
 
   const uploadSingleFile = async (file: File, index: number) => {
+    console.log('[v0] uploadSingleFile called for:', file.name, 'size:', file.size)
+    
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) throw new Error('Not authenticated')
+    console.log('[v0] Session:', session ? 'exists' : 'null')
+    
+    if (!session?.access_token) {
+      console.log('[v0] No access token, throwing error')
+      throw new Error('Not authenticated')
+    }
     
     setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'uploading', progress: 20 } : f))
     
@@ -551,21 +558,25 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
     formData.append('file', file)
     
     try {
+      console.log('[v0] Sending fetch to /api/activities/upload')
       const response = await fetch('/api/activities/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: formData
       })
       
+      console.log('[v0] Response status:', response.status)
       setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 80 } : f))
       
       const result = await response.json()
+      console.log('[v0] Response result:', result)
       
       if (!response.ok) throw new Error(result.error || 'Upload failed')
       
       setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'success', progress: 100, result } : f))
       return result
     } catch (error: any) {
+      console.log('[v0] Upload error:', error.message)
       setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error', error: error.message } : f))
       throw error
     }
