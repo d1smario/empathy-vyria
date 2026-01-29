@@ -1,0 +1,401 @@
+{
+  "system": {
+    "name": "EMPATHY",
+    "version": "1.0.0-beta",
+    "description": "AI-Powered Adaptive Training & Nutrition Platform for Athletes",
+    "tech_stack": {
+      "frontend": "Next.js 15 (App Router)",
+      "ui": "Tailwind CSS + shadcn/ui",
+      "backend": "Supabase (PostgreSQL + Auth)",
+      "ai": "Vercel AI SDK + OpenAI GPT-4",
+      "integrations": ["Strava", "Garmin (planned)", "TrainingPeaks (planned)"]
+    }
+  },
+
+  "pages": {
+    "public": [
+      { "path": "/", "name": "Landing Page", "status": "READY", "description": "Home page con hero, features e CTA" },
+      { "path": "/login", "name": "Login", "status": "READY", "description": "Autenticazione utente con Supabase Auth" },
+      { "path": "/register", "name": "Registrazione", "status": "READY", "description": "Registrazione atleta/coach" }
+    ],
+    "protected": [
+      { "path": "/dashboard", "name": "Dashboard", "status": "READY", "description": "Dashboard principale con tab per tutti i moduli" },
+      { "path": "/settings", "name": "Impostazioni", "status": "READY", "description": "Profilo, preferenze, integrazioni, zone HR/Power" },
+      { "path": "/onboarding", "name": "Onboarding", "status": "READY", "description": "Wizard iniziale per nuovi utenti" }
+    ]
+  },
+
+  "modules": {
+    "athlete_profile": {
+      "name": "Profilo Atleta",
+      "status": "READY",
+      "component": "athlete-profile.tsx",
+      "features": [
+        { "name": "Dati anagrafici", "status": "READY" },
+        { "name": "Dati biometrici (peso, altezza, BF%)", "status": "READY" },
+        { "name": "Sport praticati", "status": "READY" },
+        { "name": "FTP, LTHR, VO2max", "status": "READY" },
+        { "name": "Zone HR multisport", "status": "READY" },
+        { "name": "Zone Power", "status": "READY" }
+      ],
+      "database_tables": ["athletes", "athlete_constraints"]
+    },
+
+    "training_planning": {
+      "name": "Pianificazione Allenamento",
+      "status": "READY",
+      "components": [
+        "annual-plan-generator.tsx",
+        "vyria-training-plan.tsx",
+        "weekly-training.tsx",
+        "coach-training-planner.tsx"
+      ],
+      "features": [
+        { "name": "Piano annuale periodizzato", "status": "READY" },
+        { "name": "Mesocicli e microcicli", "status": "READY" },
+        { "name": "Calendario settimanale", "status": "READY" },
+        { "name": "Workout builder", "status": "READY" },
+        { "name": "TSS/CTL/ATL tracking", "status": "PARTIAL", "notes": "Calcolo presente, grafico mancante" }
+      ],
+      "database_tables": ["annual_training_plans", "training_activities", "athlete_workouts"]
+    },
+
+    "activity_tracking": {
+      "name": "Tracciamento Attivita",
+      "status": "READY",
+      "components": [
+        "activity-dashboard.tsx",
+        "activity-calendar.tsx",
+        "activity-detail.tsx",
+        "activity-analysis.tsx",
+        "activity-statistics.tsx"
+      ],
+      "features": [
+        { "name": "Import da Strava", "status": "READY" },
+        { "name": "Calendario attivita", "status": "READY" },
+        { "name": "Dettaglio workout", "status": "READY" },
+        { "name": "Statistiche aggregate", "status": "READY" },
+        { "name": "Analisi zone HR/Power", "status": "READY" },
+        { "name": "Import da Garmin", "status": "PLANNED" },
+        { "name": "Import da TrainingPeaks", "status": "PLANNED" }
+      ],
+      "database_tables": ["activities", "activity_deltas"]
+    },
+
+    "nutrition_plan": {
+      "name": "Piano Nutrizionale",
+      "status": "READY",
+      "component": "nutrition-plan.tsx",
+      "features": [
+        { "name": "Piano settimanale 5 pasti", "status": "READY" },
+        { "name": "Rotazione alimenti giornaliera", "status": "READY" },
+        { "name": "Calcolo macro (CHO/PRO/FAT)", "status": "READY" },
+        { "name": "Adattamento calorie per attivita", "status": "READY" },
+        { "name": "Pre/Intra/Post workout fueling", "status": "READY" },
+        { "name": "Database integratori sport", "status": "READY" },
+        { "name": "Banner avviso intolleranze", "status": "READY" },
+        { "name": "AI Adaptive toggle", "status": "PARTIAL", "notes": "Toggle presente, logica AI da completare" }
+      ],
+      "data_files": [
+        "lib/data/foods-database.ts",
+        "lib/data/supplements-database.ts"
+      ],
+      "database_tables": ["athlete_constraints"]
+    },
+
+    "microbiome_epigenetics": {
+      "name": "Microbioma & Epigenetica",
+      "status": "PARTIAL",
+      "component": "microbiome-epigenetic.tsx",
+      "features": [
+        { "name": "Import report PDF", "status": "READY" },
+        { "name": "Visualizzazione profilo batterico", "status": "READY" },
+        { "name": "Analisi pathway metabolici", "status": "READY" },
+        { "name": "Raccomandazioni AI", "status": "READY" },
+        { "name": "Database interazioni batteriche", "status": "READY" },
+        { "name": "Integrazione con nutrizione", "status": "PLANNED", "notes": "Database creato, integrazione da implementare" }
+      ],
+      "data_files": [
+        "lib/data/microbiome-database.ts"
+      ],
+      "api_routes": [
+        "app/api/ai/microbiome/route.ts",
+        "app/api/ai/epigenetics/route.ts",
+        "app/api/microbiome-analysis/route.ts"
+      ]
+    },
+
+    "biomap_report": {
+      "name": "Report BioMap",
+      "status": "READY",
+      "components": [
+        "biomap-report.tsx",
+        "biomap-report-template.tsx"
+      ],
+      "features": [
+        { "name": "Generazione report PDF", "status": "READY" },
+        { "name": "Analisi metabolica", "status": "READY" },
+        { "name": "Raccomandazioni personalizzate", "status": "READY" }
+      ]
+    },
+
+    "gym_workouts": {
+      "name": "Allenamenti Palestra",
+      "status": "READY",
+      "components": [
+        "gym-workout-builder.tsx",
+        "gym-exercise-library.tsx",
+        "gym-workout-card.tsx"
+      ],
+      "features": [
+        { "name": "Libreria esercizi", "status": "READY" },
+        { "name": "Builder workout", "status": "READY" },
+        { "name": "Schede personalizzate", "status": "READY" },
+        { "name": "API Wger integration", "status": "READY" }
+      ],
+      "api_routes": ["app/api/exercises/route.ts"],
+      "data_files": ["lib/exercise-database.ts", "lib/wger-api.ts"]
+    },
+
+    "lifestyle": {
+      "name": "Lifestyle & Recovery",
+      "status": "PARTIAL",
+      "components": [
+        "lifestyle-section.tsx",
+        "coach-lifestyle-planner.tsx"
+      ],
+      "features": [
+        { "name": "Tracking sonno", "status": "READY" },
+        { "name": "Tracking stress", "status": "READY" },
+        { "name": "Tracking HRV", "status": "PLANNED" },
+        { "name": "Raccomandazioni recovery", "status": "PARTIAL" }
+      ],
+      "api_routes": ["app/api/lifestyle/route.ts"]
+    },
+
+    "coach_features": {
+      "name": "Funzionalita Coach",
+      "status": "READY",
+      "components": [
+        "coach-dashboard.tsx",
+        "coach-training-planner.tsx",
+        "athlete-detail-view.tsx",
+        "pending-coach-invites.tsx"
+      ],
+      "features": [
+        { "name": "Dashboard multi-atleta", "status": "READY" },
+        { "name": "Inviti email atleti", "status": "READY" },
+        { "name": "Visualizzazione dettaglio atleta", "status": "READY" },
+        { "name": "Pianificazione per atleta", "status": "READY" }
+      ],
+      "api_routes": ["app/api/send-invite-email/route.ts"]
+    },
+
+    "ai_adaptive": {
+      "name": "AI Adaptive Engine",
+      "status": "PARTIAL",
+      "components": [
+        "ai-analysis-button.tsx",
+        "ai-coach-advisor.tsx"
+      ],
+      "features": [
+        { "name": "Calcolo stato giornaliero", "status": "PARTIAL" },
+        { "name": "Delta analysis attivita", "status": "READY" },
+        { "name": "Adattamento nutrizione", "status": "PLANNED" },
+        { "name": "Adattamento allenamento", "status": "PLANNED" },
+        { "name": "AI Coach conversazionale", "status": "READY" }
+      ],
+      "api_routes": [
+        "app/api/ai/adaptive-engine/route.ts",
+        "app/api/ai/propose-changes/route.ts",
+        "app/api/ai/apply-nutrition/route.ts",
+        "app/api/ai/apply-training/route.ts",
+        "app/api/ai-coach-advisor/route.ts"
+      ],
+      "lib_files": [
+        "lib/ai-adaptive/daily-state-updater.ts",
+        "lib/ai-adaptive/delta-calculator.ts"
+      ]
+    },
+
+    "settings": {
+      "name": "Impostazioni",
+      "status": "READY",
+      "component": "settings-content.tsx",
+      "features": [
+        { "name": "Profilo utente", "status": "READY" },
+        { "name": "Preferenze alimentari", "status": "READY" },
+        { "name": "Intolleranze/Allergie", "status": "READY" },
+        { "name": "Integratori sport preferiti", "status": "READY" },
+        { "name": "Zone HR multisport", "status": "READY" },
+        { "name": "Zone Power", "status": "READY" },
+        { "name": "Connessione Strava", "status": "READY" },
+        { "name": "Preferenze allenamento", "status": "READY" }
+      ]
+    }
+  },
+
+  "databases": {
+    "supplements": {
+      "file": "lib/data/supplements-database.ts",
+      "status": "READY",
+      "records": "50+ prodotti",
+      "brands": ["Enervit", "SIS", "Maurten", "NamedSport", "226ERS", "Isostar", "PowerBar", "MyProtein", "+Watt", "Ethic Sport", "4Endurance"],
+      "categories": ["gel", "barretta", "polvere", "drink", "recovery"],
+      "features": ["Valori nutrizionali reali", "Filtro intolleranze", "Matching marchi preferiti"]
+    },
+    "foods": {
+      "file": "lib/data/foods-database.ts",
+      "status": "READY",
+      "records": "200+ alimenti",
+      "categories": ["carboidrati", "proteine", "grassi", "verdure", "frutta", "latticini"],
+      "features": ["Valori nutrizionali per 100g", "Tags allergenici", "Timing ottimale"]
+    },
+    "microbiome": {
+      "file": "lib/data/microbiome-database.ts",
+      "status": "READY",
+      "content": {
+        "bacteria_profiles": 12,
+        "metabolic_pathways": 7,
+        "food_interactions": 12
+      },
+      "features": ["Profili batterici", "Pathway metabolici", "Interazioni cibo-microbioma", "Raccomandazioni per atleti"]
+    },
+    "exercises": {
+      "file": "lib/exercise-database.ts",
+      "status": "READY",
+      "source": "Wger API + database locale",
+      "features": ["Categorie muscolari", "Descrizioni", "Immagini"]
+    }
+  },
+
+  "integrations": {
+    "strava": {
+      "status": "READY",
+      "files": [
+        "lib/integrations/strava.ts",
+        "app/api/integrations/strava/connect/route.ts",
+        "app/api/integrations/strava/callback/route.ts",
+        "app/api/integrations/strava/import/route.ts"
+      ],
+      "features": ["OAuth2 connect", "Import attivita", "Sync automatico"]
+    },
+    "garmin": {
+      "status": "PLANNED",
+      "file": "lib/integrations/garmin.ts",
+      "features": ["Struttura presente", "Implementazione da completare"]
+    },
+    "trainingpeaks": {
+      "status": "PLANNED",
+      "file": "lib/integrations/trainingpeaks.ts",
+      "features": ["Struttura presente", "Implementazione da completare"]
+    }
+  },
+
+  "api_routes": {
+    "ai": [
+      { "path": "/api/ai/adaptive-engine", "purpose": "Calcolo stato AI e adattamenti", "status": "PARTIAL" },
+      { "path": "/api/ai/nutrition", "purpose": "Generazione piano nutrizionale AI", "status": "READY" },
+      { "path": "/api/ai/training", "purpose": "Generazione piano allenamento AI", "status": "READY" },
+      { "path": "/api/ai/microbiome", "purpose": "Analisi microbioma AI", "status": "READY" },
+      { "path": "/api/ai/epigenetics", "purpose": "Analisi epigenetica AI", "status": "READY" },
+      { "path": "/api/ai/generate", "purpose": "Generazione contenuti AI generici", "status": "READY" },
+      { "path": "/api/ai/propose-changes", "purpose": "Proposta modifiche AI", "status": "READY" },
+      { "path": "/api/ai-coach-advisor", "purpose": "AI Coach conversazionale", "status": "READY" }
+    ],
+    "data": [
+      { "path": "/api/exercises", "purpose": "Libreria esercizi", "status": "READY" },
+      { "path": "/api/lifestyle", "purpose": "Dati lifestyle", "status": "READY" },
+      { "path": "/api/parse-pdf", "purpose": "Parsing report PDF", "status": "READY" },
+      { "path": "/api/save-workout", "purpose": "Salvataggio workout", "status": "READY" }
+    ],
+    "integrations": [
+      { "path": "/api/integrations/strava/*", "purpose": "Integrazione Strava", "status": "READY" }
+    ]
+  },
+
+  "database_schema": {
+    "core_tables": [
+      "athletes",
+      "athlete_constraints",
+      "activities",
+      "activity_deltas",
+      "annual_training_plans",
+      "training_activities",
+      "athlete_workouts",
+      "athlete_reports",
+      "workout_library"
+    ],
+    "scripts_count": 24,
+    "rls_policies": "Configurate per coach/atleta"
+  },
+
+  "missing_features": {
+    "high_priority": [
+      {
+        "name": "Grafico TSS/CTL/ATL",
+        "description": "Visualizzazione grafica del carico di allenamento nel tempo",
+        "module": "training_planning",
+        "effort": "MEDIUM"
+      },
+      {
+        "name": "Integrazione Microbioma-Nutrizione",
+        "description": "Usare dati microbioma per suggerire alimenti specifici",
+        "module": "nutrition_plan",
+        "effort": "MEDIUM"
+      },
+      {
+        "name": "AI Adaptive completo",
+        "description": "Adattamento automatico piano basato su feedback giornaliero",
+        "module": "ai_adaptive",
+        "effort": "HIGH"
+      }
+    ],
+    "medium_priority": [
+      {
+        "name": "Integrazione Garmin",
+        "description": "Import attivita da Garmin Connect",
+        "module": "activity_tracking",
+        "effort": "MEDIUM"
+      },
+      {
+        "name": "HRV Tracking",
+        "description": "Monitoraggio variabilita cardiaca per recovery",
+        "module": "lifestyle",
+        "effort": "MEDIUM"
+      },
+      {
+        "name": "Export PDF Piano",
+        "description": "Generazione PDF del piano settimanale",
+        "module": "nutrition_plan",
+        "effort": "LOW"
+      }
+    ],
+    "low_priority": [
+      {
+        "name": "Integrazione TrainingPeaks",
+        "description": "Sync con TrainingPeaks",
+        "module": "activity_tracking",
+        "effort": "MEDIUM"
+      },
+      {
+        "name": "App Mobile",
+        "description": "Versione mobile nativa",
+        "module": "general",
+        "effort": "HIGH"
+      }
+    ]
+  },
+
+  "summary": {
+    "total_components": 37,
+    "total_api_routes": 22,
+    "total_pages": 6,
+    "total_database_tables": 9,
+    "total_sql_scripts": 24,
+    "modules_ready": 8,
+    "modules_partial": 4,
+    "modules_planned": 2,
+    "completion_percentage": 75
+  }
+}
