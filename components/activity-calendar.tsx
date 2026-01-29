@@ -104,7 +104,9 @@ interface TrainingActivity {
   id: string
   title: string
   description?: string
+  activity_date?: string
   workout_type: string
+  activity_type?: string
   target_zone?: string
   duration_minutes: number | null
   tss: number | null
@@ -1011,6 +1013,7 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
                 title: selectedWorkout.title,
                 description: selectedWorkout.description || undefined,
                 workout_type: selectedWorkout.workout_type,
+                activity_type: selectedWorkout.activity_type,
                 target_zone: selectedWorkout.target_zone || undefined,
                 duration_minutes: selectedWorkout.duration_minutes || undefined,
                 tss: selectedWorkout.tss || undefined,

@@ -2246,6 +2246,11 @@ if (annualPlan?.config_json?.training_preferences) {
     const preferredTypes = sportSupplements.types
     const zone = workoutMetrics.zone
     const duration = workoutMetrics.duration
+    
+    // Get athlete constraints for filtering
+    const isLactoseIntolerant = athleteConstraints?.intolerances?.some(i => i.toLowerCase().includes('lattosio')) || false
+    const isGlutenIntolerant = athleteConstraints?.intolerances?.some(i => i.toLowerCase().includes('glutine')) || athleteConstraints?.allergies?.some(a => a.toLowerCase().includes('glutine')) || false
+    const isCaffeineRestricted = athleteConstraints?.dietary_limits?.some(l => l.toLowerCase().includes('caffeina')) || false
 
     // Creatina per allenamenti di forza (Z5-Z6) o intervalli
     if (zone >= 5 || selectedActivity?.title?.toLowerCase().includes("forza")) {
@@ -2271,8 +2276,8 @@ if (annualPlan?.config_json?.training_preferences) {
       })
     }
 
-    // Caffeina per allenamenti intensi o lunghi
-    if ((zone >= 4 || duration > 120) && preferredTypes.includes("caffeina")) {
+    // Caffeina per allenamenti intensi o lunghi (rispettando restrizioni)
+    if ((zone >= 4 || duration > 120) && preferredTypes.includes("caffeina") && !isCaffeineRestricted) {
       for (const brand of preferredBrands) {
         const brandProducts = BRAND_PRODUCTS[brand]
         if (brandProducts?.caffeina) {
@@ -2287,12 +2292,15 @@ if (annualPlan?.config_json?.training_preferences) {
       }
     }
 
-    // Carboidrati pre se allenamento lungo
+    // Carboidrati pre se allenamento lungo (rispettando intolleranze)
     if (duration > 90 && fuelingClass !== "LOW") {
+      const carboNote = isGlutenIntolerant 
+        ? "Riso, patate o avena senza glutine 2-3h prima" 
+        : "Pasto 2-3h prima o snack 1h prima"
       stack.push({
-        name: "Carboidrati complessi",
+        name: isGlutenIntolerant ? "Carboidrati complessi (senza glutine)" : "Carboidrati complessi",
         dose: "1-2g/kg",
-        note: "Pasto 2-3h prima o snack 1h prima",
+        note: carboNote,
         timing: "2-3h prima",
       })
     }
@@ -2302,13 +2310,13 @@ if (annualPlan?.config_json?.training_preferences) {
       stack.push({
         name: "Pre-idratazione",
         dose: "500ml acqua + elettroliti",
-        note: "Inizia idratato",
+        note: isLactoseIntolerant ? "Acqua + elettroliti (no bevande con lattosio)" : "Inizia idratato",
         timing: "2h prima",
       })
     }
 
     return stack
-  }, [workoutMetrics, selectedActivity, sportSupplements, fuelingClass])
+  }, [workoutMetrics, selectedActivity, sportSupplements, fuelingClass, athleteConstraints])
 
   const intraWorkoutTiming = useMemo(() => {
     if (!selectedActivity || workoutMetrics.duration < 30) return []
@@ -2480,17 +2488,26 @@ if (annualPlan?.config_json?.training_preferences) {
     const zone = workoutMetrics.zone
     const duration = workoutMetrics.duration
     const choBurned = workoutMetrics.choBurned
+    
+    // Get athlete constraints for filtering
+    const isLactoseIntolerant = athleteConstraints?.intolerances?.some(i => i.toLowerCase().includes('lattosio')) || false
+    const isGlutenIntolerant = athleteConstraints?.intolerances?.some(i => i.toLowerCase().includes('glutine')) || athleteConstraints?.allergies?.some(a => a.toLowerCase().includes('glutine')) || false
+    const isVegan = athleteConstraints?.dietary_preferences?.some(p => p.toLowerCase().includes('vegan')) || false
+    const hasEggAllergy = athleteConstraints?.allergies?.some(a => a.toLowerCase().includes('uov')) || false
 
     // Recovery drink per allenamenti lunghi o intensi
     if ((duration > 90 || zone >= 4) && preferredTypes.includes("recovery")) {
       for (const brand of preferredBrands) {
         const brandProducts = BRAND_PRODUCTS[brand]
         if (brandProducts?.recovery) {
-          const proteinDose = Math.round(weight * 0.3) // 0.3g/kg
+          // Skip lactose products for lactose intolerant athletes
+          const recoveryNote = isLactoseIntolerant 
+            ? "Recovery drink senza lattosio - verifica gli ingredienti"
+            : "Rapporto 3:1 o 4:1 CHO:PRO per recupero ottimale"
           stack.push({
             name: brandProducts.recovery[0].name,
             dose: "30-40g",
-            note: "Rapporto 3:1 o 4:1 CHO:PRO per recupero ottimale",
+            note: recoveryNote,
             timing: "Entro 30 min",
           })
           break
@@ -2498,8 +2515,8 @@ if (annualPlan?.config_json?.training_preferences) {
       }
     }
 
-    // Whey protein per tutti gli allenamenti
-    if (preferredTypes.includes("whey")) {
+    // Whey protein per tutti gli allenamenti (con alternative per intolleranze)
+    if (preferredTypes.includes("whey") && !isLactoseIntolerant && !isVegan) {
       for (const brand of preferredBrands) {
         const brandProducts = BRAND_PRODUCTS[brand]
         if (brandProducts?.whey) {
@@ -2514,25 +2531,41 @@ if (annualPlan?.config_json?.training_preferences) {
         }
       }
     } else {
-      // Fallback protein recommendation
+      // Fallback protein recommendation based on dietary constraints
+      const proteinName = isVegan 
+        ? "Proteine vegetali (pisello/riso)" 
+        : isLactoseIntolerant 
+          ? "Proteine isolate (senza lattosio)" 
+          : "Proteine (cibo o shake)"
+      const proteinNote = isVegan 
+        ? "Tofu, tempeh, legumi, o shake proteico vegetale"
+        : isLactoseIntolerant 
+          ? "Whey isolate, uova, pollo, o proteine vegetali"
+          : hasEggAllergy 
+            ? "Yogurt greco, pollo, pesce, o shake proteico"
+            : "Uova, yogurt greco, pollo, o shake proteico"
       stack.push({
-        name: "Proteine (cibo o shake)",
+        name: proteinName,
         dose: `${Math.round(weight * 0.3)}-${Math.round(weight * 0.4)}g`,
-        note: "Uova, yogurt greco, pollo, o shake proteico",
+        note: proteinNote,
         timing: "Entro 1-2h",
       })
     }
 
-// Carboidrati post per ripristino glicogeno - EMPATHY: basato su peso, non CHO bruciati
-  if (choBurned > 50) {
-  // 0.8-1.2g/kg in base alla zona: Z5+ = 1.2, Z4 = 1.0, Z3 = 0.8, Z2 = 0.5
-  const choPerKg = zone >= 5 ? 1.2 : zone >= 4 ? 1.0 : zone >= 3 ? 0.8 : 0.5
-  const choToRestore = Math.round(weight * choPerKg)
-  stack.push({
-  name: "Carboidrati",
-  dose: `${choToRestore}g`,
-  note: `${choPerKg}g/kg - Riso, pasta, patate, frutta`,
-  timing: "Entro 2h",
+    // Carboidrati post per ripristino glicogeno - EMPATHY: basato su peso, non CHO bruciati
+    if (choBurned > 50) {
+      // 0.8-1.2g/kg in base alla zona: Z5+ = 1.2, Z4 = 1.0, Z3 = 0.8, Z2 = 0.5
+      const choPerKg = zone >= 5 ? 1.2 : zone >= 4 ? 1.0 : zone >= 3 ? 0.8 : 0.5
+      const choToRestore = Math.round(weight * choPerKg)
+      const carboName = isGlutenIntolerant ? "Carboidrati (senza glutine)" : "Carboidrati"
+      const carboNote = isGlutenIntolerant 
+        ? `${choPerKg}g/kg - Riso, patate, quinoa, frutta`
+        : `${choPerKg}g/kg - Riso, pasta, patate, frutta`
+      stack.push({
+        name: carboName,
+        dose: `${choToRestore}g`,
+        note: carboNote,
+        timing: "Entro 2h",
       })
     }
 
@@ -2551,13 +2584,13 @@ if (annualPlan?.config_json?.training_preferences) {
       stack.push({
         name: "Reidratazione",
         dose: "150% peso perso in liquidi",
-        note: "Acqua + elettroliti (500-700mg Na/L)",
+        note: isLactoseIntolerant ? "Acqua + elettroliti (no bevande con latticini)" : "Acqua + elettroliti (500-700mg Na/L)",
         timing: "Nelle 2-4h successive",
       })
     }
 
     return stack
-  }, [workoutMetrics, weight, sportSupplements, selectedActivity])
+  }, [workoutMetrics, weight, sportSupplements, selectedActivity, athleteConstraints])
 
   // Generate the weekly meal plan
   const weeklyMealPlan = useMemo(() => {
@@ -4103,19 +4136,84 @@ const { meals: calculatedMeals, profile: workoutProfile } = calculateMealTiming(
                       </CardContent>
                     </Card>
 
-                    {/* Preferred Brands */}
-                    {sportSupplements.brands.length > 0 && (
-                      <div className="p-4 rounded-lg bg-secondary/30 border border-border">
-                        <p className="text-sm text-muted-foreground mb-2">Marchi preferiti configurati:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {sportSupplements.brands.map((brand) => (
-                            <Badge key={brand} variant="outline" className="border-purple-500/50 text-purple-400">
-                              {brand}
-                            </Badge>
-                          ))}
-                        </div>
+                    {/* Athlete Fueling Preferences Panel */}
+                    <div className="p-4 rounded-lg bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Package className="h-5 w-5 text-purple-400" />
+                        <span className="font-semibold text-purple-400">Preferenze Fueling Atleta</span>
                       </div>
-                    )}
+                      
+                      {/* Preferred Brands */}
+                      {sportSupplements.brands.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground mb-1">Marchi preferiti:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {sportSupplements.brands.map((brand) => (
+                              <Badge key={brand} variant="outline" className="border-purple-500/50 text-purple-400 text-xs">
+                                {brand}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Preferred Types */}
+                      {sportSupplements.types.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground mb-1">Tipi prodotti:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {sportSupplements.types.map((type) => (
+                              <Badge key={type} variant="outline" className="border-blue-500/50 text-blue-400 text-xs">
+                                {type}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Active Intolerances/Allergies affecting fueling */}
+                      {(athleteConstraints?.intolerances?.length > 0 || athleteConstraints?.allergies?.length > 0) && (
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground mb-1">Vincoli alimentari attivi:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {athleteConstraints?.intolerances?.map((intol) => (
+                              <Badge key={intol} variant="outline" className="border-amber-500/50 text-amber-400 text-xs">
+                                No {intol}
+                              </Badge>
+                            ))}
+                            {athleteConstraints?.allergies?.map((allergy) => (
+                              <Badge key={allergy} variant="outline" className="border-red-500/50 text-red-400 text-xs">
+                                No {allergy}
+                              </Badge>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 opacity-75">
+                            I prodotti suggeriti sono filtrati in base ai tuoi vincoli alimentari
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Dietary Preferences */}
+                      {athleteConstraints?.dietary_preferences?.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs text-muted-foreground mb-1">Preferenze dietetiche:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {athleteConstraints.dietary_preferences.map((pref) => (
+                              <Badge key={pref} variant="outline" className="border-green-500/50 text-green-400 text-xs">
+                                {pref}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* No preferences configured */}
+                      {sportSupplements.brands.length === 0 && sportSupplements.types.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nessuna preferenza configurata. Configura marchi e tipi di prodotti in Impostazioni → Nutrizione.
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Colonna Destra - Report Nutrigenomics */}

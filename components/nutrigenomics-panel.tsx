@@ -255,6 +255,12 @@ export function NutrigenomicsPanel({
                         Preferisci: {rec.prefer.join(', ')}
                       </p>
                     )}
+                    {/* Reasoning summary */}
+                    {rec.reasoning && (
+                      <p className="text-muted-foreground/70 ml-5 mt-1 italic line-clamp-2">
+                        {rec.reasoning}
+                      </p>
+                    )}
                   </div>
                 )
               })}

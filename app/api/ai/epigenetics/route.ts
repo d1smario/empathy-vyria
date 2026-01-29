@@ -74,7 +74,7 @@ TRAINING (30gg):
 - TSS totale: ${training.reduce((s: number, t: any) => s + (t.tss || 0), 0)}
 
 VINCOLI:
-${constraints ? `Allergie: ${constraints.allergies?.join(", ") || "Nessuna"}` : "Nessuno"}
+${constraints ? `Allergie: ${constraints.allergies?.join(", ") || "Nessuna"}, Intolleranze: ${constraints.intolerances?.join(", ") || "Nessuna"}, Preferenze: ${constraints.dietary_preferences?.join(", ") || "Nessuna"}` : "Nessuno"}
 
 CONTESTO: ${context || "Analisi generale"}
 
@@ -84,8 +84,9 @@ Analizza:
 3. Capacita' genetiche di recupero, sintesi proteica, metabolismo
 4. Nutrienti chiave per modulare l'espressione genica
 
-IMPORTANTE: Rispondi SOLO con JSON valido senza markdown. Max 2 elementi per array.
-{"geneticProfile":{"strengths":["punto forte"],"weaknesses":["punto debole"],"adaptationCapacity":"medium"},"trainingResponse":{"endurance":"descrizione","strength":"descrizione","recovery":"descrizione","recommendations":["consiglio"]},"nutrigenomicProtocol":[{"nutrient":"nome","dosage":"dose","timing":"quando"}],"lifestyleFactors":[{"factor":"fattore","recommendation":"consiglio"}]}`
+IMPORTANTE: Per ogni raccomandazione, includi SEMPRE un campo "reasoning" che spiega la motivazione metabolica/genetica.
+Rispondi SOLO con JSON valido senza markdown. Max 2-3 elementi per array.
+{"geneticProfile":{"strengths":["punto forte con spiegazione"],"weaknesses":["punto debole con spiegazione"],"adaptationCapacity":"medium","reasoning":"spiegazione del profilo genetico complessivo"},"trainingResponse":{"endurance":"descrizione e ragionamento","strength":"descrizione e ragionamento","recovery":"descrizione e ragionamento","recommendations":[{"action":"consiglio","reasoning":"motivazione metabolica"}]},"nutrigenomicProtocol":[{"nutrient":"nome","dosage":"dose","timing":"quando","reasoning":"perche' questo nutriente e' importante per questo profilo genetico"}],"lifestyleFactors":[{"factor":"fattore","recommendation":"consiglio","reasoning":"spiegazione dell'impatto epigenetico"}]}`
 
     const { text } = await generateText({
       model: "openai/gpt-4o-mini",
