@@ -1,5 +1,9 @@
 "use client"
 
+import { useCallback } from "react"
+
+import { useRef } from "react"
+
 import type React from "react"
 import { X } from "lucide-react"
 
@@ -19,7 +23,9 @@ import { it } from "date-fns/locale"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight, Bike, Sun as Run, Dumbbell, Waves, Calendar, TrendingUp, Heart, Zap, Plus, RefreshCw, Target, CalendarRange } from "lucide-react"
+import { ChevronLeft, ChevronRight, Bike, Sun as Run, Dumbbell, Waves, Calendar, TrendingUp, Heart, Zap, Plus, RefreshCw, Target, CalendarRange, Upload, FileUp, Check, AlertCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { WorkoutDetailModal } from "@/components/workout-detail-modal"
@@ -221,6 +227,11 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
   const [selectedDayName, setSelectedDayName] = useState<string>("")
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null)
   const [athleteFTP, setAthleteFTP] = useState<number>(300)
+  // Upload FIT state
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState<{file: File, status: 'pending' | 'uploading' | 'success' | 'error', progress: number, error?: string, result?: any}[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const supabase = createClient()
   const dayNames = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
@@ -509,6 +520,77 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
     })
   }
 
+  // Upload FIT file handling
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files).filter(f => {
+      const name = f.name.toLowerCase()
+      return name.endsWith('.fit') || name.endsWith('.tcx') || name.endsWith('.gpx') || 
+             name.endsWith('.fit.gz') || name.endsWith('.tcx.gz') || name.endsWith('.gpx.gz')
+    })
+    if (files.length > 0) {
+      setUploadingFiles(files.map(file => ({ file, status: 'pending', progress: 0 })))
+    }
+  }, [])
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      setUploadingFiles(files.map(file => ({ file, status: 'pending', progress: 0 })))
+    }
+  }
+
+  const uploadSingleFile = async (file: File, index: number) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) throw new Error('Not authenticated')
+    
+    setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'uploading', progress: 20 } : f))
+    
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    try {
+      const response = await fetch('/api/activities/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        body: formData
+      })
+      
+      setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, progress: 80 } : f))
+      
+      const result = await response.json()
+      
+      if (!response.ok) throw new Error(result.error || 'Upload failed')
+      
+      setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'success', progress: 100, result } : f))
+      return result
+    } catch (error: any) {
+      setUploadingFiles(prev => prev.map((f, i) => i === index ? { ...f, status: 'error', error: error.message } : f))
+      throw error
+    }
+  }
+
+  const uploadAllFiles = async () => {
+    for (let i = 0; i < uploadingFiles.length; i++) {
+      if (uploadingFiles[i].status === 'pending') {
+        try {
+          await uploadSingleFile(uploadingFiles[i].file, i)
+        } catch (e) {
+          console.error('Upload error:', e)
+        }
+      }
+    }
+    // Refresh activities after upload
+    loadTrainingActivities()
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
   return (
     <div className="space-y-6">
       {annualPlan && currentPhase && (
@@ -644,6 +726,10 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
               </Button>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowUploadDialog(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import FIT
+              </Button>
               <Button variant="outline" size="sm" onClick={handleSync} disabled={loading}>
                 <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
                 Sync
@@ -1053,6 +1139,96 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
       athleteFTP={athleteFTP}
     />
   ) : null}
+
+  {/* Upload FIT Dialog */}
+  <Dialog open={showUploadDialog} onOpenChange={(open) => {
+    setShowUploadDialog(open)
+    if (!open) setUploadingFiles([])
+  }}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Upload className="h-5 w-5" />
+          Import Attivita
+        </DialogTitle>
+        <DialogDescription>
+          Carica file FIT, TCX o GPX dal tuo computer o device
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div className="space-y-4">
+        {/* Drop zone */}
+        <div
+          className={cn(
+            "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+            isDragging ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/50"
+          )}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
+          onDrop={handleFileDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".fit,.tcx,.gpx,.fit.gz,.tcx.gz,.gpx.gz"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <FileUp className={cn("h-10 w-10 mx-auto mb-3", isDragging ? "text-primary" : "text-muted-foreground")} />
+          <p className="text-sm font-medium">
+            {isDragging ? "Rilascia qui" : "Trascina file o clicca per selezionare"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">FIT, TCX, GPX (anche .gz)</p>
+        </div>
+
+        {/* File list */}
+        {uploadingFiles.length > 0 && (
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {uploadingFiles.map((f, i) => (
+              <div key={i} className={cn(
+                "flex items-center gap-3 p-3 rounded-lg border",
+                f.status === 'success' && "bg-green-500/5 border-green-500/30",
+                f.status === 'error' && "bg-red-500/5 border-red-500/30",
+                f.status === 'uploading' && "bg-blue-500/5 border-blue-500/30",
+                f.status === 'pending' && "bg-muted/30"
+              )}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{f.file.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatFileSize(f.file.size)}</p>
+                  {f.status === 'uploading' && <Progress value={f.progress} className="h-1 mt-1" />}
+                  {f.error && <p className="text-xs text-red-500 mt-1">{f.error}</p>}
+                  {f.result?.activity && (
+                    <p className="text-xs text-green-600 mt-1">
+                      {f.result.activity.type} - {f.result.activity.date}
+                    </p>
+                  )}
+                </div>
+                {f.status === 'success' && <Check className="h-5 w-5 text-green-500" />}
+                {f.status === 'error' && <AlertCircle className="h-5 w-5 text-red-500" />}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Upload button */}
+        {uploadingFiles.filter(f => f.status === 'pending').length > 0 && (
+          <Button onClick={uploadAllFiles} className="w-full">
+            <Upload className="h-4 w-4 mr-2" />
+            Carica {uploadingFiles.filter(f => f.status === 'pending').length} file
+          </Button>
+        )}
+        
+        {/* Success message */}
+        {uploadingFiles.length > 0 && uploadingFiles.every(f => f.status === 'success') && (
+          <Button variant="outline" onClick={() => { setShowUploadDialog(false); setUploadingFiles([]) }} className="w-full">
+            Fatto - Chiudi
+          </Button>
+        )}
+      </div>
+    </DialogContent>
+  </Dialog>
     </div>
   )
 }
