@@ -67,29 +67,71 @@ export async function parseFitFile(buffer: ArrayBuffer): Promise<ParsedActivityF
         // Get records from activity, session laps, or direct
         let records: any[] = []
         
-        // Try to get records from different locations
-        if (activity.sessions?.[0]?.laps?.[0]?.records) {
-          // Cascade mode - records inside laps inside sessions
+        // Debug: log all available keys at each level
+        console.log('[FIT Parser] Top level keys:', Object.keys(data))
+        console.log('[FIT Parser] Activity keys:', Object.keys(activity))
+        if (sessions.length > 0) {
+          console.log('[FIT Parser] Session[0] keys:', Object.keys(sessions[0]))
+        }
+        
+        // Try to get records from different locations (in priority order)
+        // 1. Direct records array (most common for simple files)
+        if (data.records && Array.isArray(data.records) && data.records.length > 0) {
+          records = data.records
+          console.log('[FIT Parser] Found records at data.records:', records.length)
+        }
+        // 2. Cascade mode - records inside laps inside sessions inside activity
+        else if (activity.sessions?.[0]?.laps?.[0]?.records) {
           activity.sessions.forEach((s: any) => {
             s.laps?.forEach((lap: any) => {
-              if (lap.records) {
+              if (lap.records && Array.isArray(lap.records)) {
                 records = records.concat(lap.records)
               }
             })
           })
-        } else if (session.laps?.[0]?.records) {
-          // Records inside laps
+          console.log('[FIT Parser] Found records in activity.sessions.laps:', records.length)
+        }
+        // 3. Records inside session laps
+        else if (session.laps?.[0]?.records) {
           session.laps.forEach((lap: any) => {
-            if (lap.records) {
+            if (lap.records && Array.isArray(lap.records)) {
               records = records.concat(lap.records)
             }
           })
-        } else if (data.records) {
-          // Direct records array
-          records = data.records
+          console.log('[FIT Parser] Found records in session.laps:', records.length)
+        }
+        // 4. Records directly in laps array
+        else if (data.laps && Array.isArray(data.laps)) {
+          data.laps.forEach((lap: any) => {
+            if (lap.records && Array.isArray(lap.records)) {
+              records = records.concat(lap.records)
+            }
+          })
+          console.log('[FIT Parser] Found records in data.laps:', records.length)
+        }
+        // 5. Activity records
+        else if (activity.records && Array.isArray(activity.records)) {
+          records = activity.records
+          console.log('[FIT Parser] Found records at activity.records:', records.length)
         }
         
-        console.log('[FIT Parser] Records extracted:', records.length)
+        // If still no records, try to find any array that looks like records
+        if (records.length === 0) {
+          console.log('[FIT Parser] No records found in standard locations, searching...')
+          for (const key of Object.keys(data)) {
+            const val = data[key]
+            if (Array.isArray(val) && val.length > 0 && val[0] && (val[0].timestamp || val[0].heart_rate || val[0].power)) {
+              records = val
+              console.log('[FIT Parser] Found records at data.' + key + ':', records.length)
+              break
+            }
+          }
+        }
+        
+        console.log('[FIT Parser] Total records extracted:', records.length)
+        if (records.length > 0) {
+          console.log('[FIT Parser] First record sample:', JSON.stringify(records[0]).substring(0, 300))
+        }
         
         // Get start time
         let startTime: Date | undefined
