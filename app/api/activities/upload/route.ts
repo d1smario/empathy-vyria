@@ -187,9 +187,13 @@ export async function POST(request: NextRequest) {
     let summary: any = null
     
     if (actualExtension === 'fit') {
+      console.log('[v0] Parsing FIT file, buffer size:', fileBuffer.byteLength)
       parsedData = await parseFitFile(fileBuffer)
+      console.log('[v0] FIT parsed - dataPoints count:', parsedData.dataPoints?.length || 0)
+      console.log('[v0] FIT parsed - records count:', parsedData.records?.length || 0)
+      console.log('[v0] FIT parsed - session:', JSON.stringify(parsedData.session).substring(0, 500))
       summary = extractActivitySummary(parsedData)
-      console.log('[v0] FIT parsed - summary:', summary)
+      console.log('[v0] FIT summary:', JSON.stringify(summary))
     } else {
       // Convert buffer to text for XML/JSON formats
       const decoder = new TextDecoder('utf-8')
@@ -350,6 +354,8 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('[v0] Activity record raw_data size:', JSON.stringify(activityRecord.raw_data).length, 'bytes')
+    console.log('[v0] raw_data.d length:', activityRecord.raw_data?.d?.length || 0)
+    console.log('[v0] raw_data.d sample:', JSON.stringify(activityRecord.raw_data?.d?.slice(0, 3)))
     
     // Insert the activity record
     const { data: inserted, error: insertError } = await supabase
