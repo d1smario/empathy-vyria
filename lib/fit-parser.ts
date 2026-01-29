@@ -39,7 +39,7 @@ export async function parseFitFile(buffer: ArrayBuffer): Promise<ParsedActivityF
         lengthUnit: 'm',
         temperatureUnit: 'celsius',
         elapsedRecordField: true,
-        mode: 'cascade',
+        mode: 'list',  // 'list' mode puts records directly in data.records
       })
       
       fitParser.parse(buffer, (error: Error | null, data: any) => {

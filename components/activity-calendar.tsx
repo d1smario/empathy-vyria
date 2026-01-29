@@ -555,6 +555,37 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
     }
   }
 
+  // Test FIT parser to debug what data it extracts
+  const [testResult, setTestResult] = useState<string | null>(null)
+  
+  const testFitParser = async (file: File) => {
+    console.log('[v0] Testing FIT parser for:', file.name)
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    try {
+      const response = await fetch('/api/test-fit-parser', {
+        method: 'POST',
+        body: formData
+      })
+      const result = await response.json()
+      console.log('[v0] FIT Parser Test Result:', JSON.stringify(result, null, 2))
+      const msg = `FIT Parser Result:
+- DataPoints: ${result.dataPointsCount}
+- Records: ${result.recordsCount}
+- Duration: ${result.summary?.duration_seconds}s
+- Avg Power: ${result.summary?.avg_power_watts}W
+- Avg HR: ${result.summary?.avg_heart_rate}bpm
+- Session Keys: ${result.sessionKeys?.join(', ')}
+- Sample: ${JSON.stringify(result.sampleDataPoints?.[0] || 'none')}`
+      setTestResult(msg)
+      return result
+    } catch (e: any) {
+      console.error('[v0] FIT Parser Test Error:', e)
+      setTestResult('Error: ' + e.message)
+    }
+  }
+
   const uploadSingleFile = async (file: File, index: number) => {
     console.log('[v0] uploadSingleFile called for:', file.name, 'size:', file.size)
     
@@ -1239,17 +1270,29 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
           </div>
         )}
 
-        {/* Upload button */}
+        {/* Upload and Test buttons */}
         {uploadingFiles.filter(f => f.status === 'pending').length > 0 && (
-          <Button onClick={uploadAllFiles} className="w-full">
-            <Upload className="h-4 w-4 mr-2" />
-            Carica {uploadingFiles.filter(f => f.status === 'pending').length} file
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={uploadAllFiles} className="flex-1">
+              <Upload className="h-4 w-4 mr-2" />
+              Carica {uploadingFiles.filter(f => f.status === 'pending').length} file
+            </Button>
+            <Button variant="outline" onClick={() => uploadingFiles[0] && testFitParser(uploadingFiles[0].file)}>
+              Test Parser
+            </Button>
+          </div>
+        )}
+        
+        {/* Test Result Display */}
+        {testResult && (
+          <div className="p-3 bg-muted/50 rounded-lg text-xs font-mono whitespace-pre-wrap max-h-48 overflow-auto">
+            {testResult}
+          </div>
         )}
         
         {/* Success message */}
         {uploadingFiles.length > 0 && uploadingFiles.every(f => f.status === 'success') && (
-          <Button variant="outline" onClick={() => { setShowUploadDialog(false); setUploadingFiles([]) }} className="w-full">
+          <Button variant="outline" onClick={() => { setShowUploadDialog(false); setUploadingFiles([]); setTestResult(null) }} className="w-full">
             Fatto - Chiudi
           </Button>
         )}
