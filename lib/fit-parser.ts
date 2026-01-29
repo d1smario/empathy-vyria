@@ -1,7 +1,5 @@
-// FIT Parser using fit-file-parser (more robust)
-// Supports files from Garmin, Polar, Wahoo, Strava, TrainingPeaks, etc.
-
-import FitParser from 'fit-file-parser'
+// FIT Parser using official Garmin FIT SDK
+import { Decoder, Stream } from "@garmin/fitsdk"
 
 export interface DataPoint {
   time: number // seconds from start
@@ -24,269 +22,206 @@ export interface ParsedActivityFile {
   records: any[]
   dataPoints: DataPoint[]
   startTime?: Date
-  rawData?: any // For debugging
 }
 
 export type ParsedFitFile = ParsedActivityFile
 
+// Convert Garmin semicircles to degrees
+function semicirclesToDegrees(semicircles: number): number {
+  return semicircles * (180 / Math.pow(2, 31))
+}
+
 export async function parseFitFile(buffer: ArrayBuffer): Promise<ParsedActivityFile> {
-  console.log('[FIT Parser] Starting parse, buffer size:', buffer.byteLength)
+  console.log('[FIT Parser] Starting with Garmin SDK, buffer size:', buffer.byteLength)
   
-  return new Promise((resolve, reject) => {
-    try {
-      const fitParser = new FitParser({
-        force: true,
-        speedUnit: 'km/h',
-        lengthUnit: 'm',
-        temperatureUnit: 'celsius',
-        elapsedRecordField: true,
-        mode: 'list',  // 'list' mode puts records directly in data.records
-      })
-      
-      fitParser.parse(buffer, (error: Error | null, data: any) => {
-        if (error) {
-          console.error('[FIT Parser] Parse error:', error)
-          reject(error)
-          return
-        }
-        
-        console.log('[FIT Parser] Parse complete, keys:', Object.keys(data || {}))
-        
-        if (!data) {
-          reject(new Error('FIT parser returned no data'))
-          return
-        }
-        
-        // Get activity/sessions
-        const activity = data.activity || {}
-        const sessions = activity.sessions || data.sessions || []
-        const session = sessions[0] || {}
-        
-        console.log('[FIT Parser] Activity type:', session.sport)
-        console.log('[FIT Parser] Sessions count:', sessions.length)
-        
-        // Get records from activity, session laps, or direct
-        let records: any[] = []
-        
-        // Debug: log all available keys at each level
-        console.log('[FIT Parser] Top level keys:', Object.keys(data))
-        console.log('[FIT Parser] Activity keys:', Object.keys(activity))
-        if (sessions.length > 0) {
-          console.log('[FIT Parser] Session[0] keys:', Object.keys(sessions[0]))
-        }
-        
-        // Try to get records from different locations (in priority order)
-        // 1. Direct records array (most common for simple files)
-        if (data.records && Array.isArray(data.records) && data.records.length > 0) {
-          records = data.records
-          console.log('[FIT Parser] Found records at data.records:', records.length)
-        }
-        // 2. Cascade mode - records inside laps inside sessions inside activity
-        else if (activity.sessions?.[0]?.laps?.[0]?.records) {
-          activity.sessions.forEach((s: any) => {
-            s.laps?.forEach((lap: any) => {
-              if (lap.records && Array.isArray(lap.records)) {
-                records = records.concat(lap.records)
-              }
-            })
-          })
-          console.log('[FIT Parser] Found records in activity.sessions.laps:', records.length)
-        }
-        // 3. Records inside session laps
-        else if (session.laps?.[0]?.records) {
-          session.laps.forEach((lap: any) => {
-            if (lap.records && Array.isArray(lap.records)) {
-              records = records.concat(lap.records)
-            }
-          })
-          console.log('[FIT Parser] Found records in session.laps:', records.length)
-        }
-        // 4. Records directly in laps array
-        else if (data.laps && Array.isArray(data.laps)) {
-          data.laps.forEach((lap: any) => {
-            if (lap.records && Array.isArray(lap.records)) {
-              records = records.concat(lap.records)
-            }
-          })
-          console.log('[FIT Parser] Found records in data.laps:', records.length)
-        }
-        // 5. Activity records
-        else if (activity.records && Array.isArray(activity.records)) {
-          records = activity.records
-          console.log('[FIT Parser] Found records at activity.records:', records.length)
-        }
-        
-        // If still no records, try to find any array that looks like records
-        if (records.length === 0) {
-          console.log('[FIT Parser] No records found in standard locations, searching...')
-          for (const key of Object.keys(data)) {
-            const val = data[key]
-            if (Array.isArray(val) && val.length > 0 && val[0] && (val[0].timestamp || val[0].heart_rate || val[0].power)) {
-              records = val
-              console.log('[FIT Parser] Found records at data.' + key + ':', records.length)
-              break
-            }
-          }
-        }
-        
-        console.log('[FIT Parser] Total records extracted:', records.length)
-        if (records.length > 0) {
-          console.log('[FIT Parser] First record sample:', JSON.stringify(records[0]).substring(0, 300))
-        }
-        
-        // Get start time
-        let startTime: Date | undefined
-        if (records.length > 0 && records[0].timestamp) {
-          startTime = new Date(records[0].timestamp)
-        } else if (session.start_time) {
-          startTime = new Date(session.start_time)
-        } else if (activity.timestamp) {
-          startTime = new Date(activity.timestamp)
-        }
-        
-        console.log('[FIT Parser] Start time:', startTime)
-        
-        // Convert records to dataPoints
-        const dataPoints: DataPoint[] = []
-        const powers: number[] = []
-        const heartRates: number[] = []
-        const cadences: number[] = []
-        const speeds: number[] = []
-        const elevations: number[] = []
-        let maxPower = 0, maxHr = 0, maxSpeed = 0
-        let totalDistance = 0
-        
-        for (let i = 0; i < records.length; i++) {
-          const rec = records[i]
-          
-          // Calculate time from start
-          let timeFromStart = 0
-          if (rec.elapsed_time !== undefined) {
-            timeFromStart = rec.elapsed_time
-          } else if (startTime && rec.timestamp) {
-            timeFromStart = (new Date(rec.timestamp).getTime() - startTime.getTime()) / 1000
-          }
-          
-          // Extract values
-          const power = rec.power
-          const hr = rec.heart_rate
-          const cadence = rec.cadence
-          const speed = rec.speed // already in km/h from parser options
-          const elevation = rec.altitude || rec.enhanced_altitude
-          const lat = rec.position_lat
-          const lng = rec.position_long
-          const temp = rec.temperature
-          const distance = rec.distance
-          
-          // Collect for averages
-          if (power && power > 0) {
-            powers.push(power)
-            if (power > maxPower) maxPower = power
-          }
-          if (hr && hr > 0) {
-            heartRates.push(hr)
-            if (hr > maxHr) maxHr = hr
-          }
-          if (cadence && cadence > 0) cadences.push(cadence)
-          if (speed && speed > 0) {
-            speeds.push(speed)
-            if (speed > maxSpeed) maxSpeed = speed
-          }
-          if (elevation !== undefined && !isNaN(elevation)) elevations.push(elevation)
-          if (distance) totalDistance = distance
-          
-          dataPoints.push({
-            time: timeFromStart,
-            power: power || undefined,
-            heartRate: hr || undefined,
-            cadence: cadence || undefined,
-            speed: speed || undefined,
-            elevation: elevation,
-            lat: lat,
-            lng: lng,
-            temperature: temp || undefined,
-            distance: distance || undefined,
-          })
-        }
-        
-        console.log('[FIT Parser] DataPoints created:', dataPoints.length)
-        console.log('[FIT Parser] Stats - Power:', powers.length, 'HR:', heartRates.length, 'Speed:', speeds.length, 'Elevation:', elevations.length)
-        
-        // Sample first 3 data points for debugging
-        if (dataPoints.length > 0) {
-          console.log('[FIT Parser] Sample dataPoints:', JSON.stringify(dataPoints.slice(0, 3)))
-        }
-        
-        // Calculate averages
-        const avgPower = powers.length > 0 ? Math.round(powers.reduce((a, b) => a + b, 0) / powers.length) : 0
-        const avgHr = heartRates.length > 0 ? Math.round(heartRates.reduce((a, b) => a + b, 0) / heartRates.length) : 0
-        const avgCadence = cadences.length > 0 ? Math.round(cadences.reduce((a, b) => a + b, 0) / cadences.length) : 0
-        const avgSpeed = speeds.length > 0 ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length * 10) / 10 : 0
-        
-        // Calculate elevation gain
-        let elevationGain = 0
-        if (elevations.length > 1) {
-          for (let i = 1; i < elevations.length; i++) {
-            const diff = elevations[i] - elevations[i - 1]
-            if (diff > 0 && diff < 50) elevationGain += diff
-          }
-        }
-        
-        // Calculate NP
-        const normalizedPower = calculateNP(powers)
-        
-        // Duration
-        const durationFromRecords = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].time : 0
-        const duration = session.total_timer_time || session.total_elapsed_time || durationFromRecords
-        
-        // Build merged session
-        const mergedSession = {
-          sport: session.sport || activity.type || 'cycling',
-          sub_sport: session.sub_sport,
-          start_time: startTime,
-          total_timer_time: duration,
-          total_elapsed_time: session.total_elapsed_time || duration,
-          total_distance: session.total_distance || totalDistance,
-          total_ascent: session.total_ascent || Math.round(elevationGain),
-          total_calories: session.total_calories || 0,
-          avg_power: session.avg_power || avgPower,
-          max_power: session.max_power || maxPower,
-          avg_heart_rate: session.avg_heart_rate || avgHr,
-          max_heart_rate: session.max_heart_rate || maxHr,
-          avg_cadence: session.avg_cadence || avgCadence,
-          avg_speed: session.avg_speed || avgSpeed,
-          max_speed: session.max_speed || maxSpeed,
-          normalized_power: session.normalized_power || normalizedPower,
-        }
-        
-        console.log('[FIT Parser] Session summary:', JSON.stringify({
-          sport: mergedSession.sport,
-          duration: mergedSession.total_timer_time,
-          distance: mergedSession.total_distance,
-          avgPower: mergedSession.avg_power,
-          avgHr: mergedSession.avg_heart_rate,
-          avgSpeed: mergedSession.avg_speed,
-        }))
-        
-        // Get laps
-        const laps = session.laps || activity.sessions?.[0]?.laps || data.laps || []
-        
-        resolve({
-          format: 'fit',
-          parsed: true,
-          session: mergedSession,
-          records,
-          laps,
-          dataPoints,
-          startTime,
-          rawData: data, // For debugging
-        })
-      })
-    } catch (err) {
-      console.error('[FIT Parser] Exception:', err)
-      reject(err)
+  try {
+    const stream = Stream.fromArrayBuffer(buffer)
+    const decoder = new Decoder(stream)
+    
+    if (!decoder.isFIT()) {
+      console.error('[FIT Parser] Not a valid FIT file')
+      throw new Error('Not a valid FIT file')
     }
-  })
+    
+    const integrity = decoder.checkIntegrity()
+    console.log('[FIT Parser] Integrity check:', integrity)
+    
+    const { messages, errors } = decoder.read()
+    
+    if (errors && errors.length > 0) {
+      console.warn('[FIT Parser] Decoder warnings:', errors.length)
+    }
+    
+    console.log('[FIT Parser] Message types found:', Object.keys(messages))
+    
+    // Extract session info
+    const sessions = messages.sessionMesgs || []
+    const session = sessions[0] || {}
+    
+    console.log('[FIT Parser] Sessions found:', sessions.length)
+    console.log('[FIT Parser] Session sport:', session.sport, 'subSport:', session.subSport)
+    
+    // Extract laps
+    const laps = messages.lapMesgs || []
+    console.log('[FIT Parser] Laps found:', laps.length)
+    
+    // Extract records (the main data points)
+    const records = messages.recordMesgs || []
+    console.log('[FIT Parser] Records found:', records.length)
+    
+    if (records.length > 0) {
+      console.log('[FIT Parser] First record keys:', Object.keys(records[0]))
+    }
+    
+    // Get start time
+    let startTime: Date | undefined
+    if (session.startTime) {
+      startTime = new Date(session.startTime)
+    } else if (records[0]?.timestamp) {
+      startTime = new Date(records[0].timestamp)
+    }
+    console.log('[FIT Parser] Start time:', startTime)
+    
+    // Convert records to dataPoints
+    const dataPoints: DataPoint[] = []
+    const powers: number[] = []
+    const heartRates: number[] = []
+    const cadences: number[] = []
+    const speeds: number[] = []
+    const elevations: number[] = []
+    let maxPower = 0, maxHr = 0, maxSpeed = 0
+    let totalDistance = 0
+    
+    for (const record of records) {
+      // Calculate elapsed time from start
+      let timeFromStart = 0
+      if (record.timestamp && startTime) {
+        const recordTime = new Date(record.timestamp)
+        timeFromStart = Math.floor((recordTime.getTime() - startTime.getTime()) / 1000)
+      }
+      
+      // Extract values - Garmin SDK uses camelCase
+      const power = record.power
+      const hr = record.heartRate
+      const cadence = record.cadence
+      const speedMps = record.speed // m/s in Garmin SDK
+      const speed = speedMps !== undefined ? speedMps * 3.6 : undefined // convert to km/h
+      const elevation = record.altitude ?? record.enhancedAltitude
+      const distance = record.distance
+      const temp = record.temperature
+      const lat = record.positionLat !== undefined ? semicirclesToDegrees(record.positionLat) : undefined
+      const lng = record.positionLong !== undefined ? semicirclesToDegrees(record.positionLong) : undefined
+      
+      // Collect for averages
+      if (power !== undefined && power > 0) {
+        powers.push(power)
+        if (power > maxPower) maxPower = power
+      }
+      if (hr !== undefined && hr > 0) {
+        heartRates.push(hr)
+        if (hr > maxHr) maxHr = hr
+      }
+      if (cadence !== undefined && cadence > 0) cadences.push(cadence)
+      if (speed !== undefined && speed > 0) {
+        speeds.push(speed)
+        if (speed > maxSpeed) maxSpeed = speed
+      }
+      if (elevation !== undefined && !isNaN(elevation)) elevations.push(elevation)
+      if (distance !== undefined) totalDistance = distance
+      
+      dataPoints.push({
+        time: timeFromStart,
+        power: power || undefined,
+        heartRate: hr || undefined,
+        cadence: cadence || undefined,
+        speed: speed || undefined,
+        elevation: elevation,
+        lat: lat,
+        lng: lng,
+        temperature: temp || undefined,
+        distance: distance || undefined,
+      })
+    }
+    
+    console.log('[FIT Parser] DataPoints created:', dataPoints.length)
+    console.log('[FIT Parser] Stats - Powers:', powers.length, 'HRs:', heartRates.length, 'Speeds:', speeds.length)
+    
+    if (dataPoints.length > 0) {
+      console.log('[FIT Parser] First dataPoint:', JSON.stringify(dataPoints[0]))
+      console.log('[FIT Parser] Last dataPoint:', JSON.stringify(dataPoints[dataPoints.length - 1]))
+    }
+    
+    // Calculate averages from dataPoints
+    const avgPower = powers.length > 0 ? Math.round(powers.reduce((a, b) => a + b, 0) / powers.length) : 0
+    const avgHr = heartRates.length > 0 ? Math.round(heartRates.reduce((a, b) => a + b, 0) / heartRates.length) : 0
+    const avgCadence = cadences.length > 0 ? Math.round(cadences.reduce((a, b) => a + b, 0) / cadences.length) : 0
+    const avgSpeed = speeds.length > 0 ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length * 10) / 10 : 0
+    
+    // Calculate elevation gain
+    let elevationGain = 0
+    if (elevations.length > 1) {
+      for (let i = 1; i < elevations.length; i++) {
+        const diff = elevations[i] - elevations[i - 1]
+        if (diff > 0 && diff < 50) elevationGain += diff
+      }
+    }
+    
+    // Calculate Normalized Power
+    const normalizedPower = calculateNP(powers)
+    
+    // Duration
+    const durationFromRecords = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1].time : 0
+    const duration = session.totalTimerTime || session.totalElapsedTime || durationFromRecords
+    
+    // Build merged session with all data
+    const mergedSession = {
+      sport: session.sport || 'cycling',
+      sub_sport: session.subSport,
+      start_time: startTime,
+      total_timer_time: duration,
+      total_elapsed_time: session.totalElapsedTime || duration,
+      total_distance: session.totalDistance || totalDistance,
+      total_ascent: session.totalAscent || Math.round(elevationGain),
+      total_descent: session.totalDescent || 0,
+      total_calories: session.totalCalories || 0,
+      avg_power: session.avgPower || avgPower,
+      max_power: session.maxPower || maxPower,
+      avg_heart_rate: session.avgHeartRate || avgHr,
+      max_heart_rate: session.maxHeartRate || maxHr,
+      avg_cadence: session.avgCadence || avgCadence,
+      max_cadence: session.maxCadence || 0,
+      avg_speed: session.avgSpeed ? session.avgSpeed * 3.6 : avgSpeed,
+      max_speed: session.maxSpeed ? session.maxSpeed * 3.6 : maxSpeed,
+      normalized_power: session.normalizedPower || normalizedPower,
+      training_stress_score: session.trainingStressScore,
+      intensity_factor: session.intensityFactor,
+      total_work: session.totalWork,
+    }
+    
+    console.log('[FIT Parser] Final session:', JSON.stringify(mergedSession))
+    
+    return {
+      format: 'fit',
+      parsed: true,
+      session: mergedSession,
+      records,
+      laps: laps.map((lap: any) => ({
+        startTime: lap.startTime,
+        totalElapsedTime: lap.totalElapsedTime,
+        totalDistance: lap.totalDistance,
+        avgSpeed: lap.avgSpeed ? lap.avgSpeed * 3.6 : undefined,
+        avgHeartRate: lap.avgHeartRate,
+        avgCadence: lap.avgCadence,
+        avgPower: lap.avgPower,
+        maxPower: lap.maxPower,
+      })),
+      dataPoints,
+      startTime,
+    }
+  } catch (error) {
+    console.error('[FIT Parser] Error:', error)
+    throw error
+  }
 }
 
 function calculateNP(powers: number[]): number {
@@ -338,7 +273,7 @@ export function extractActivitySummary(parsed: ParsedActivityFile) {
   const normalizedPower = session.normalized_power || 0
   
   // Calculate TSS and IF
-  const ftp = 200 // Default FTP
+  const ftp = 200 // Default FTP - will be overwritten by athlete's FTP
   const intensityFactor = normalizedPower && ftp ? normalizedPower / ftp : 0
   const tss = normalizedPower && durationSeconds && ftp 
     ? Math.round((durationSeconds * normalizedPower * intensityFactor) / (ftp * 3600) * 100) 
@@ -360,8 +295,6 @@ export function extractActivitySummary(parsed: ParsedActivityFile) {
     avg_cadence: Math.round(avgCadence),
     avg_speed_kmh: Math.round(avgSpeed * 10) / 10,
     max_speed_kmh: Math.round(maxSpeed * 10) / 10,
-    avg_speed_mps: Math.round(avgSpeed / 3.6 * 100) / 100,
-    max_speed_mps: Math.round(maxSpeed / 3.6 * 100) / 100,
     tss,
     intensity_factor: Math.round(intensityFactor * 100) / 100,
     variability_index: Math.round(vi * 100) / 100,
