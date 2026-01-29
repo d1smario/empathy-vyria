@@ -24,6 +24,7 @@ export interface ParsedActivityFile {
   records: any[]
   dataPoints: DataPoint[]
   startTime?: Date
+  rawData?: any // For debugging
 }
 
 export type ParsedFitFile = ParsedActivityFile
@@ -278,6 +279,7 @@ export async function parseFitFile(buffer: ArrayBuffer): Promise<ParsedActivityF
           laps,
           dataPoints,
           startTime,
+          rawData: data, // For debugging
         })
       })
     } catch (err) {
