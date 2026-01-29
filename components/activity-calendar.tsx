@@ -477,6 +477,8 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
   
   // Load and show detailed activity view
   const handleActivityClick = async (activity: Activity) => {
+    console.log('[v0] handleActivityClick:', activity.id, 'source:', activity.source, 'type:', activity.activity_type)
+    
     // For strength/gym workouts, load full details including intervals/exercises
     if (activity.activity_type === 'strength' || activity.source === 'ai_generated') {
       try {
@@ -495,16 +497,20 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
       }
     }
     
-    // If this activity has an 'imported' source, load full details from imported_activities
+// If this activity has an 'imported' source, load full details from imported_activities
     if (activity.source === 'imported' || activity.source === 'manual_upload') {
+      console.log('[v0] Loading imported activity details for:', activity.id)
       try {
         const { data, error } = await supabase
           .from('imported_activities')
           .select('*')
           .eq('id', activity.id)
           .single()
+
+        console.log('[v0] Imported activity loaded:', data ? 'yes' : 'no', 'raw_data:', data?.raw_data ? 'exists' : 'missing', 'error:', error)
         
         if (data && !error) {
+          console.log('[v0] raw_data.d length:', data.raw_data?.d?.length || 0)
           setSelectedActivity(data)
           return
         }
