@@ -549,9 +549,16 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
   }, [])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length > 0) {
-      setUploadingFiles(files.map(file => ({ file, status: 'pending', progress: 0 })))
+    console.log('[v0] handleFileSelect called')
+    try {
+      const files = Array.from(e.target.files || [])
+      console.log('[v0] Files selected:', files.length, files.map(f => f.name))
+      if (files.length > 0) {
+        setUploadingFiles(files.map(file => ({ file, status: 'pending', progress: 0 })))
+        console.log('[v0] uploadingFiles set to:', files.length, 'files')
+      }
+    } catch (err) {
+      console.error('[v0] handleFileSelect error:', err)
     }
   }
 
