@@ -319,10 +319,18 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
         .sort((a, b) => a.activity_date.localeCompare(b.activity_date))
 
       console.log("[v0] Loaded activities:", activitiesData?.length || 0, "planned,", importedData?.length || 0, "imported")
+      console.log("[v0] Date range searched:", startDate, "to", endDate)
       if (importedData && importedData.length > 0) {
-        console.log("[v0] Imported activities dates:", importedData.map(i => i.activity_date + " - " + i.title))
+        console.log("[v0] Imported activities:", importedData.map(i => ({
+          id: i.id,
+          date: i.activity_date,
+          title: i.title,
+          source: i.source_provider,
+          type: i.activity_type
+        })))
       }
       setActivities(allActivities)
+      console.log("[v0] Total activities set:", allActivities.length)
     } catch (error) {
       console.error("[v0] ActivityCalendar: Error loading training activities:", error)
     }
@@ -599,7 +607,9 @@ export const ActivityCalendar: React.FC<ActivityCalendarProps> = ({
       }
     }
     // Refresh activities after upload
-    loadTrainingActivities()
+    console.log('[v0] All uploads complete, refreshing activities...')
+    await loadTrainingActivities()
+    console.log('[v0] Activities refreshed after upload')
   }
 
   const formatFileSize = (bytes: number) => {
